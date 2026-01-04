@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DataChart | 数据曲线可视化</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div class="hero__content">
+          <p class="hero__eyebrow">DataChart</p>
+          <h1>让表格数据一眼看懂的曲线图</h1>
+          <p class="hero__desc">
+            上传 CSV 表格，自动识别列并绘制多条曲线。系统会根据数据量级自动分配多 Y 轴，保证每条曲线都清晰可读。
+          </p>
+          <div class="hero__actions">
+            <label class="upload">
+              <input id="fileInput" type="file" accept=".csv" />
+              <span>上传 CSV 文件</span>
+            </label>
+            <button class="ghost" id="sampleBtn">加载示例数据</button>
+          </div>
+          <div class="hero__meta">
+            <div>
+              <span class="meta__label">表格结构</span>
+              <span>首行/首列视为标题</span>
+            </div>
+            <div>
+              <span class="meta__label">Y 轴策略</span>
+              <span>量级差小于 10 倍共用轴</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero__visual">
+          <div class="glass">
+            <div class="glass__title">实时预览</div>
+            <div class="glass__value" id="seriesCount">0 条曲线</div>
+            <div class="glass__note">请上传 CSV 或加载示例</div>
+          </div>
+          <div class="glow"></div>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <h2>图表设置</h2>
+              <p>当前版本仅提供线形曲线，后续将支持更多类型。</p>
+            </div>
+            <div class="control">
+              <label for="chartType">图表类型</label>
+              <select id="chartType" disabled>
+                <option>线形曲线</option>
+                <option>柱状</option>
+                <option>面积</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel__body">
+            <div class="axis-summary" id="axisSummary">
+              <span>暂无数据</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel chart-panel">
+          <div class="panel__header">
+            <div>
+              <h2>曲线图</h2>
+              <p>支持多列数据自动绘制，自动生成多个 Y 轴。</p>
+            </div>
+            <div class="legend" id="legend"></div>
+          </div>
+          <div class="chart-wrap">
+            <svg id="chart" viewBox="0 0 1100 540" role="img" aria-label="数据曲线图"></svg>
+            <div class="range-slider is-hidden" id="rangeSlider">
+              <div class="range-track" id="rangeTrack">
+                <div class="range-selection" id="rangeSelection">
+                  <div class="range-handle" data-handle="left" aria-label="左侧滑块"></div>
+                  <div class="range-handle" data-handle="right" aria-label="右侧滑块"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
