@@ -18,16 +18,21 @@ let chartLayout = null;
 let sliderPadding = { left: 0, right: 0 };
 const seriesStyles = new Map();
 const axisOverrides = new Map();
+let dropdownListenerAttached = false;
 
-const palette = [
-  "#0f6fff",
-  "#00bcd4",
-  "#ff6b6b",
-  "#f59f00",
-  "#7f5af0",
-  "#2e7d32",
-  "#f97316",
-  "#0ea5e9",
+const colorOptions = [
+  "#00b894",
+  "#74b9ff",
+  "#0984e3",
+  "#a29bfe",
+  "#fdcb6e",
+  "#f19066",
+  "#f78fb3",
+  "#d63031",
+  "#dfe6e9",
+  "#b2bec3",
+  "#636e72",
+  "#2d3436",
 ];
 
 const sampleCSV = `时间,用户访问,订单数,退款金额,服务器负载
@@ -80,7 +85,11 @@ function handleCSV(text) {
   axisOverrides.clear();
   dataset.series.forEach((series) => {
     visibility.set(series.id, true);
-    seriesStyles.set(series.id, { type: "line", showCurrent: false });
+    seriesStyles.set(series.id, {
+      type: "line",
+      showCurrent: false,
+      color: colorOptions[series.index % colorOptions.length],
+    });
   });
 
   renderAll();
@@ -456,7 +465,7 @@ function renderChart(dataset, visibleSeries) {
     }
 
     const style = getSeriesStyle(series.id);
-    const color = palette[series.index % palette.length];
+    const color = getSeriesColor(series);
 
     if (style.type === "bar") {
       const barIndex = barIndexMap.get(series.id) ?? 0;
@@ -548,12 +557,32 @@ function renderChart(dataset, visibleSeries) {
   });
   chart.appendChild(hoverLine);
 
+  const hoverDots = createSvg("g", {
+    class: "hover-dots",
+    opacity: "0",
+  });
+  chart.appendChild(hoverDots);
+
   hoverState = {
     line: hoverLine,
+    dots: hoverDots,
     left: paddingLeft,
     right: paddingLeft + chartWidth,
     top: paddingTop,
     bottom: paddingTop + chartHeight,
+    xValues,
+    numericX,
+    xRangeMin,
+    xRangeMax,
+    chartWidth,
+    paddingLeft,
+    xScale,
+    yScale,
+    series: dataset.series.filter((series) => visibleSet.has(series.id) && series.hasData),
+    seriesGroup: new Map(dataset.series.map((series) => [
+      series.id,
+      groups.find((group) => group.series.includes(series)) || null,
+    ])),
   };
 
   chartLayout = {
@@ -579,7 +608,7 @@ function updateLegend() {
 
     const swatch = document.createElement("span");
     swatch.className = "legend__swatch";
-    swatch.style.backgroundColor = palette[series.index % palette.length];
+    swatch.style.backgroundColor = getSeriesColor(series);
 
     const label = document.createElement("span");
     label.textContent = series.name;
@@ -617,7 +646,11 @@ function updateSeriesCount() {
 
 function getSeriesStyle(seriesId) {
   if (!seriesStyles.has(seriesId)) {
-    seriesStyles.set(seriesId, { type: "line", showCurrent: false });
+    seriesStyles.set(seriesId, {
+      type: "line",
+      showCurrent: false,
+      color: colorOptions[0],
+    });
   }
   return seriesStyles.get(seriesId);
 }
@@ -625,6 +658,29 @@ function getSeriesStyle(seriesId) {
 function setSeriesStyle(seriesId, updates) {
   const current = getSeriesStyle(seriesId);
   seriesStyles.set(seriesId, { ...current, ...updates });
+}
+
+function getSeriesColor(series) {
+  const style = getSeriesStyle(series.id);
+  if (style.color) {
+    return style.color;
+  }
+  return colorOptions[series.index % colorOptions.length];
+}
+
+function isValidHexColor(value) {
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
+}
+
+function normalizeHexColor(value) {
+  let input = value.trim();
+  if (!input) {
+    return "";
+  }
+  if (!input.startsWith("#")) {
+    input = `#${input}`;
+  }
+  return input.toLowerCase();
 }
 
 function updateSeriesControls() {
@@ -638,6 +694,7 @@ function updateSeriesControls() {
   }
   currentDataset.series.forEach((series) => {
     const style = getSeriesStyle(series.id);
+    const color = getSeriesColor(series);
     const row = document.createElement("div");
     row.className = "series-row";
 
@@ -645,7 +702,7 @@ function updateSeriesControls() {
     label.className = "series-label";
     const swatch = document.createElement("span");
     swatch.className = "legend__swatch";
-    swatch.style.backgroundColor = palette[series.index % palette.length];
+    swatch.style.backgroundColor = color;
     const name = document.createElement("span");
     name.textContent = series.name;
     label.appendChild(swatch);
@@ -672,6 +729,101 @@ function updateSeriesControls() {
       refreshChart();
     });
 
+    const dropdown = document.createElement("div");
+    dropdown.className = "color-dropdown";
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "color-trigger";
+    trigger.setAttribute("aria-expanded", "false");
+
+    const triggerSwatch = document.createElement("span");
+    triggerSwatch.className = "color-trigger__swatch";
+    triggerSwatch.style.backgroundColor = color;
+    const triggerLabel = document.createElement("span");
+    triggerLabel.textContent = "颜色";
+    trigger.appendChild(triggerSwatch);
+    trigger.appendChild(triggerLabel);
+
+    const menu = document.createElement("div");
+    menu.className = "color-menu";
+
+    const colorInput = document.createElement("input");
+    colorInput.type = "text";
+    colorInput.className = "color-input";
+    colorInput.value = color;
+    colorInput.placeholder = "#rrggbb";
+
+    const applyColor = (value) => {
+      setSeriesStyle(series.id, { color: value });
+      swatch.style.backgroundColor = value;
+      triggerSwatch.style.backgroundColor = value;
+      updateLegend();
+      refreshChart();
+    };
+
+    const paletteButtons = [];
+    const updatePaletteSelection = (value) => {
+      paletteButtons.forEach((button) => {
+        button.classList.toggle("is-selected", button.dataset.color === value);
+      });
+    };
+
+    colorOptions.forEach((colorOption) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "color-swatch";
+      button.dataset.color = colorOption;
+      button.style.backgroundColor = colorOption;
+      button.setAttribute("aria-label", `选择颜色 ${colorOption}`);
+      button.addEventListener("click", () => {
+        colorInput.value = colorOption;
+        updatePaletteSelection(colorOption);
+        applyColor(colorOption);
+        dropdown.classList.remove("is-open");
+        trigger.setAttribute("aria-expanded", "false");
+      });
+      paletteButtons.push(button);
+      menu.appendChild(button);
+    });
+
+    updatePaletteSelection(color);
+
+    colorInput.addEventListener("change", () => {
+      const normalized = normalizeHexColor(colorInput.value);
+      if (!isValidHexColor(normalized)) {
+        const currentColor = getSeriesColor(series);
+        colorInput.value = currentColor;
+        updatePaletteSelection(currentColor);
+        return;
+      }
+      colorInput.value = normalized;
+      updatePaletteSelection(normalized);
+      applyColor(normalized);
+    });
+
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = dropdown.classList.toggle("is-open");
+      trigger.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+
+    dropdown.appendChild(trigger);
+    dropdown.appendChild(menu);
+
+    if (!dropdownListenerAttached) {
+      dropdownListenerAttached = true;
+      document.addEventListener("click", () => {
+        document.querySelectorAll(".color-dropdown.is-open").forEach((node) => {
+          node.classList.remove("is-open");
+          const button = node.querySelector(".color-trigger");
+          if (button) {
+            button.setAttribute("aria-expanded", "false");
+          }
+        });
+      });
+    }
+
     const toggle = document.createElement("label");
     toggle.className = "series-toggle";
     const checkbox = document.createElement("input");
@@ -687,6 +839,8 @@ function updateSeriesControls() {
     toggle.appendChild(toggleText);
 
     options.appendChild(select);
+    options.appendChild(dropdown);
+    options.appendChild(colorInput);
     options.appendChild(toggle);
     row.appendChild(label);
     row.appendChild(options);
@@ -897,6 +1051,23 @@ function getLastValue(values) {
   return null;
 }
 
+function findNearestIndex(values, target) {
+  let bestIndex = 0;
+  let bestDistance = Infinity;
+  for (let i = 0; i < values.length; i += 1) {
+    const value = values[i];
+    if (value === null || Number.isNaN(value)) {
+      continue;
+    }
+    const distance = Math.abs(value - target);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+}
+
 function formatNumber(value) {
   if (!Number.isFinite(value)) {
     return "";
@@ -929,7 +1100,7 @@ function drawCurrentValue(series, group, xValues, numericX, xScale, yScale, boun
   const xValue = numericX ? xValues[last.index] : last.index;
   const x = xScale(xValue);
   const y = yScale(last.value, group);
-  const color = palette[series.index % palette.length];
+  const color = getSeriesColor(series);
   const reference = createSvg("line", {
     x1: bounds.left,
     x2: bounds.right,
@@ -1046,6 +1217,72 @@ function updateSliderPadding() {
   sliderPadding = { left: leftPadding, right: rightPadding };
 }
 
+function getHoverPoint(svgX) {
+  if (!hoverState) {
+    return null;
+  }
+  const {
+    xValues,
+    numericX,
+    xRangeMin,
+    xRangeMax,
+    chartWidth,
+    paddingLeft,
+    xScale,
+  } = hoverState;
+  if (!xValues.length) {
+    return null;
+  }
+  const ratio = (svgX - paddingLeft) / chartWidth;
+  if (!Number.isFinite(ratio)) {
+    return null;
+  }
+  if (numericX) {
+    const valueAtX = xRangeMin + ratio * (xRangeMax - xRangeMin);
+    const index = findNearestIndex(xValues, valueAtX);
+    const xValue = xValues[index];
+    return {
+      index,
+      x: xScale(xValue),
+    };
+  }
+  const index = clamp(Math.round(ratio * (xValues.length - 1)), 0, xValues.length - 1);
+  return {
+    index,
+    x: xScale(index),
+  };
+}
+
+function updateHoverDots(hoverPoint) {
+  if (!hoverState || !hoverState.dots) {
+    return;
+  }
+  const { dots, series, seriesGroup, yScale } = hoverState;
+  while (dots.firstChild) {
+    dots.removeChild(dots.firstChild);
+  }
+  series.forEach((seriesItem) => {
+    const value = seriesItem.values[hoverPoint.index];
+    if (value === null || Number.isNaN(value)) {
+      return;
+    }
+    const group = seriesGroup.get(seriesItem.id);
+    if (!group) {
+      return;
+    }
+    const y = yScale(value, group);
+    const dot = createSvg("circle", {
+      cx: hoverPoint.x,
+      cy: y,
+      r: 4,
+      class: "hover-dot",
+      stroke: getSeriesColor(seriesItem),
+    });
+    dots.appendChild(dot);
+  });
+  dots.setAttribute("opacity", "1");
+}
+
 function handleHoverMove(event) {
   if (!hoverState || !hoverState.line) {
     return;
@@ -1058,17 +1295,29 @@ function handleHoverMove(event) {
 
   if (x < hoverState.left || x > hoverState.right) {
     hoverState.line.setAttribute("opacity", "0");
+    if (hoverState.dots) {
+      hoverState.dots.setAttribute("opacity", "0");
+    }
+    return;
+  }
+
+  const hoverPoint = getHoverPoint(x);
+  if (!hoverPoint) {
     return;
   }
 
   hoverState.line.setAttribute("opacity", "1");
-  hoverState.line.setAttribute("x1", x);
-  hoverState.line.setAttribute("x2", x);
+  hoverState.line.setAttribute("x1", hoverPoint.x);
+  hoverState.line.setAttribute("x2", hoverPoint.x);
+  updateHoverDots(hoverPoint);
 }
 
 function hideHoverLine() {
   if (hoverState && hoverState.line) {
     hoverState.line.setAttribute("opacity", "0");
+  }
+  if (hoverState && hoverState.dots) {
+    hoverState.dots.setAttribute("opacity", "0");
   }
 }
 
