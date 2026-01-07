@@ -54,7 +54,7 @@
           <div class="panel__header">
             <div>
               <h2>图表设置</h2>
-              <p>当前版本仅提供线形曲线，后续将支持更多类型。</p>
+              <p>为每组 Y 轴锁定范围，并为每条曲线配置绘图样式与当前值显示。</p>
             </div>
             <div class="control">
               <label for="chartType">图表类型</label>
@@ -66,8 +66,23 @@
             </div>
           </div>
           <div class="panel__body">
-            <div class="axis-summary" id="axisSummary">
-              <span>暂无数据</span>
+            <div class="settings-grid">
+              <div class="settings-block">
+                <div class="settings-head">
+                  <h3>Y 轴范围</h3>
+                  <p>支持按数据分组后为每个 Y 轴设置最小/最大值。</p>
+                </div>
+                <div class="axis-summary" id="axisSummary">
+                  <span>暂无数据</span>
+                </div>
+              </div>
+              <div class="settings-block">
+                <div class="settings-head">
+                  <h3>曲线样式</h3>
+                  <p>为每条曲线指定类型，并设置显示当前值。</p>
+                </div>
+                <div class="series-controls" id="seriesControls"></div>
+              </div>
             </div>
           </div>
         </section>

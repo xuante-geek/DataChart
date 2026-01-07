@@ -3,6 +3,7 @@ const sampleBtn = document.getElementById("sampleBtn");
 const chart = document.getElementById("chart");
 const legend = document.getElementById("legend");
 const axisSummary = document.getElementById("axisSummary");
+const seriesControls = document.getElementById("seriesControls");
 const seriesCount = document.getElementById("seriesCount");
 const rangeSlider = document.getElementById("rangeSlider");
 const rangeTrack = document.getElementById("rangeTrack");
@@ -15,6 +16,8 @@ let hoverState = null;
 let dragState = null;
 let chartLayout = null;
 let sliderPadding = { left: 0, right: 0 };
+const seriesStyles = new Map();
+const axisOverrides = new Map();
 
 const palette = [
   "#0f6fff",
@@ -73,8 +76,11 @@ function handleCSV(text) {
     end: Math.max(0, dataset.xValues.length - 1),
   };
   visibility.clear();
+  seriesStyles.clear();
+  axisOverrides.clear();
   dataset.series.forEach((series) => {
     visibility.set(series.id, true);
+    seriesStyles.set(series.id, { type: "line", showCurrent: false });
   });
 
   renderAll();
@@ -187,29 +193,12 @@ function buildRangeDataset(dataset, range, visibleSeries) {
 
   visibleSeries.forEach((seriesItem) => {
     const values = seriesItem.values.slice(start, end + 1);
-    let min = Infinity;
-    let max = -Infinity;
-    let maxAbs = 0;
-
-    values.forEach((value) => {
-      if (value === null || Number.isNaN(value)) {
-        return;
-      }
-      min = Math.min(min, value);
-      max = Math.max(max, value);
-      maxAbs = Math.max(maxAbs, Math.abs(value));
-    });
-
-    if (!Number.isFinite(min) || !Number.isFinite(max)) {
-      return;
-    }
+    const hasData = values.some((value) => value !== null && !Number.isNaN(value));
 
     series.push({
       ...seriesItem,
       values,
-      min,
-      max,
-      maxAbs,
+      hasData,
     });
   });
 
@@ -271,16 +260,85 @@ function groupSeries(seriesList) {
   return groups;
 }
 
+function roundDownToMagnitude(value) {
+  if (value === 0) {
+    return 0;
+  }
+  const magnitude = 10 ** Math.floor(Math.log10(Math.abs(value)));
+  if (value > 0) {
+    return Math.floor(value / magnitude) * magnitude;
+  }
+  return -Math.ceil(Math.abs(value) / magnitude) * magnitude;
+}
+
+function roundUpToMagnitude(value) {
+  if (value === 0) {
+    return 0;
+  }
+  const magnitude = 10 ** Math.floor(Math.log10(Math.abs(value)));
+  if (value > 0) {
+    return Math.ceil(value / magnitude) * magnitude;
+  }
+  return -Math.floor(Math.abs(value) / magnitude) * magnitude;
+}
+
+function getDefaultAxisBounds(min, max) {
+  let roundedMin = roundDownToMagnitude(min);
+  let roundedMax = roundUpToMagnitude(max);
+  if (roundedMin === roundedMax) {
+    roundedMin -= 1;
+    roundedMax += 1;
+  }
+  if (roundedMin > roundedMax) {
+    const temp = roundedMin;
+    roundedMin = roundedMax;
+    roundedMax = temp;
+  }
+  return { min: roundedMin, max: roundedMax };
+}
+
+function getGroupKey(group) {
+  return group.series
+    .map((series) => series.id)
+    .sort()
+    .join("|");
+}
+
+function applyAxisOverrides(groups) {
+  groups.forEach((group) => {
+    const key = getGroupKey(group);
+    group.key = key;
+    if (!axisOverrides.has(key)) {
+      axisOverrides.set(key, getDefaultAxisBounds(group.min, group.max));
+    }
+    const override = axisOverrides.get(key);
+    if (
+      override &&
+      Number.isFinite(override.min) &&
+      Number.isFinite(override.max) &&
+      override.min < override.max
+    ) {
+      group.min = override.min;
+      group.max = override.max;
+    }
+  });
+}
+
 function renderEmpty(message) {
   currentDataset = null;
   currentRange = null;
   visibility.clear();
+  seriesStyles.clear();
+  axisOverrides.clear();
   hoverState = null;
   chartLayout = null;
   sliderPadding = { left: 0, right: 0 };
   chart.innerHTML = "";
   legend.innerHTML = "";
   axisSummary.innerHTML = `<span>${message}</span>`;
+  if (seriesControls) {
+    seriesControls.innerHTML = "";
+  }
   seriesCount.textContent = "0 条曲线";
   if (rangeSlider) {
     rangeSlider.classList.add("is-hidden");
@@ -296,6 +354,7 @@ function renderAll() {
     return;
   }
   updateLegend();
+  updateSeriesControls();
   updateSeriesCount();
   refreshChart();
   updateSlider();
@@ -320,27 +379,21 @@ function refreshChart() {
     (series) => visibility.get(series.id) !== false
   );
 
-  if (!visibleSeries.length) {
-    chart.innerHTML = "";
-    axisSummary.innerHTML = "<span>所有曲线已隐藏，请点击图例重新显示。</span>";
-    hoverState = null;
-    return;
-  }
-
-  const rangeDataset = buildRangeDataset(currentDataset, currentRange, visibleSeries);
-
-  if (!rangeDataset.series.length) {
+  const rangeDataset = buildRangeDataset(currentDataset, currentRange, currentDataset.series);
+  const hasData = rangeDataset.series.some((series) => series.hasData);
+  if (!hasData) {
     chart.innerHTML = "";
     axisSummary.innerHTML = "<span>当前区间内暂无可绘制数据。</span>";
     hoverState = null;
     return;
   }
 
-  renderChart(rangeDataset);
+  renderChart(rangeDataset, visibleSeries);
 }
 
-function renderChart(dataset) {
+function renderChart(dataset, visibleSeries) {
   const groups = groupSeries(dataset.series);
+  applyAxisOverrides(groups);
   const axisCount = groups.length;
 
   const { width, height } = getChartDimensions();
@@ -369,45 +422,117 @@ function renderChart(dataset) {
   const yScale = (value, group) =>
     paddingTop + (1 - (value - group.min) / (group.max - group.min)) * chartHeight;
 
-  drawGrid(chart, paddingLeft, paddingTop, chartWidth, chartHeight, groups[0]);
-  drawAxes(chart, groups, paddingLeft, paddingTop, chartWidth, chartHeight, axisGap);
+  const tickCount = 11;
+  drawGrid(chart, paddingLeft, paddingTop, chartWidth, chartHeight, groups[0], tickCount);
+  drawAxes(chart, groups, paddingLeft, paddingTop, chartWidth, chartHeight, axisGap, tickCount);
   drawXAxis(chart, paddingLeft, paddingTop, chartWidth, chartHeight, dataset, xScale);
 
+  const visibleSet = new Set(visibleSeries.map((series) => series.id));
+  const barSeries = dataset.series.filter((series) => {
+    if (!visibleSet.has(series.id)) {
+      return false;
+    }
+    if (!series.hasData) {
+      return false;
+    }
+    return getSeriesStyle(series.id).type === "bar";
+  });
+  const barCount = barSeries.length;
+  const barIndexMap = new Map();
+  barSeries.forEach((series, index) => {
+    barIndexMap.set(series.id, index);
+  });
+  const barSlot = chartWidth / Math.max(1, xCount);
+  const barGroupWidth = Math.min(barSlot * 0.7, 36);
+  const barWidth = barCount > 0 ? barGroupWidth / barCount : 0;
+
   dataset.series.forEach((series) => {
+    if (!visibleSet.has(series.id)) {
+      return;
+    }
     const group = groups.find((g) => g.series.includes(series));
-    if (!group) {
+    if (!group || !series.hasData) {
       return;
     }
 
-    let path = "";
-    let active = false;
+    const style = getSeriesStyle(series.id);
+    const color = palette[series.index % palette.length];
 
-    for (let i = 0; i < xCount; i += 1) {
-      const value = series.values[i];
-      if (value === null || Number.isNaN(value)) {
-        active = false;
-        continue;
+    if (style.type === "bar") {
+      const barIndex = barIndexMap.get(series.id) ?? 0;
+      const baselineValue = getBaselineValue(group);
+      const baselineY = yScale(baselineValue, group);
+
+      for (let i = 0; i < xCount; i += 1) {
+        const value = series.values[i];
+        if (value === null || Number.isNaN(value)) {
+          continue;
+        }
+        const xValue = numericX ? xValues[i] : i;
+        const xCenter = xScale(xValue);
+        const x = xCenter - barGroupWidth / 2 + barIndex * barWidth;
+        const y = yScale(value, group);
+        const heightValue = Math.abs(baselineY - y);
+        const rect = createSvg("rect", {
+          x,
+          y: Math.min(y, baselineY),
+          width: Math.max(2, barWidth - 2),
+          height: Math.max(0, heightValue),
+          class: "series-bar",
+          fill: color,
+        });
+        chart.appendChild(rect);
       }
+    } else {
+      const segments = getSeriesSegments(series.values);
+      segments.forEach((segment) => {
+        const linePath = buildLinePath(
+          segment,
+          xValues,
+          numericX,
+          xScale,
+          yScale,
+          group
+        );
+        if (!linePath) {
+          return;
+        }
 
-      const xValue = numericX ? xValues[i] : i;
-      const x = xScale(xValue);
-      const y = yScale(value, group);
+        if (style.type === "area") {
+          const areaPath = buildAreaPath(
+            segment,
+            xValues,
+            numericX,
+            xScale,
+            yScale,
+            group
+          );
+          if (areaPath) {
+            const area = createSvg("path", {
+              d: areaPath,
+              class: "series-area",
+              fill: color,
+            });
+            chart.appendChild(area);
+          }
+        }
 
-      if (!active) {
-        path += `M ${x} ${y}`;
-        active = true;
-      } else {
-        path += ` L ${x} ${y}`;
-      }
+        const line = createSvg("path", {
+          d: linePath,
+          class: "series-line",
+          stroke: color,
+        });
+        chart.appendChild(line);
+      });
     }
 
-    if (path) {
-      const line = createSvg("path", {
-        d: path,
-        class: "series-line",
-        stroke: palette[series.index % palette.length],
+    if (style.showCurrent) {
+      drawCurrentValue(series, group, xValues, numericX, xScale, yScale, {
+        left: paddingLeft,
+        right: paddingLeft + chartWidth,
+        top: paddingTop,
+        bottom: paddingTop + chartHeight,
       });
-      chart.appendChild(line);
     }
   });
 
@@ -490,6 +615,85 @@ function updateSeriesCount() {
   }
 }
 
+function getSeriesStyle(seriesId) {
+  if (!seriesStyles.has(seriesId)) {
+    seriesStyles.set(seriesId, { type: "line", showCurrent: false });
+  }
+  return seriesStyles.get(seriesId);
+}
+
+function setSeriesStyle(seriesId, updates) {
+  const current = getSeriesStyle(seriesId);
+  seriesStyles.set(seriesId, { ...current, ...updates });
+}
+
+function updateSeriesControls() {
+  if (!seriesControls) {
+    return;
+  }
+  seriesControls.innerHTML = "";
+  if (!currentDataset) {
+    seriesControls.innerHTML = "<span>暂无数据</span>";
+    return;
+  }
+  currentDataset.series.forEach((series) => {
+    const style = getSeriesStyle(series.id);
+    const row = document.createElement("div");
+    row.className = "series-row";
+
+    const label = document.createElement("div");
+    label.className = "series-label";
+    const swatch = document.createElement("span");
+    swatch.className = "legend__swatch";
+    swatch.style.backgroundColor = palette[series.index % palette.length];
+    const name = document.createElement("span");
+    name.textContent = series.name;
+    label.appendChild(swatch);
+    label.appendChild(name);
+
+    const options = document.createElement("div");
+    options.className = "series-options";
+
+    const select = document.createElement("select");
+    const types = [
+      { value: "line", label: "线形" },
+      { value: "bar", label: "柱状" },
+      { value: "area", label: "面积" },
+    ];
+    types.forEach((type) => {
+      const option = document.createElement("option");
+      option.value = type.value;
+      option.textContent = type.label;
+      select.appendChild(option);
+    });
+    select.value = style.type;
+    select.addEventListener("change", () => {
+      setSeriesStyle(series.id, { type: select.value });
+      refreshChart();
+    });
+
+    const toggle = document.createElement("label");
+    toggle.className = "series-toggle";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = style.showCurrent;
+    checkbox.addEventListener("change", () => {
+      setSeriesStyle(series.id, { showCurrent: checkbox.checked });
+      refreshChart();
+    });
+    const toggleText = document.createElement("span");
+    toggleText.textContent = "当前值";
+    toggle.appendChild(checkbox);
+    toggle.appendChild(toggleText);
+
+    options.appendChild(select);
+    options.appendChild(toggle);
+    row.appendChild(label);
+    row.appendChild(options);
+    seriesControls.appendChild(row);
+  });
+}
+
 function updateSlider() {
   if (
     !rangeSlider ||
@@ -518,11 +722,11 @@ function updateSlider() {
   rangeSelection.style.right = `${trackWidth - endPx}px`;
 }
 
-function drawGrid(svg, left, top, width, height, baseGroup) {
+function drawGrid(svg, left, top, width, height, baseGroup, tickCount) {
   if (!baseGroup) {
     return;
   }
-  const ticks = createTicks(baseGroup.min, baseGroup.max, 5);
+  const ticks = createTicks(baseGroup.min, baseGroup.max, tickCount);
 
   ticks.forEach((tick) => {
     const y = top + (1 - (tick - baseGroup.min) / (baseGroup.max - baseGroup.min)) * height;
@@ -537,7 +741,7 @@ function drawGrid(svg, left, top, width, height, baseGroup) {
   });
 }
 
-function drawAxes(svg, groups, left, top, width, height, axisGap) {
+function drawAxes(svg, groups, left, top, width, height, axisGap, tickCount) {
   groups.forEach((group, index) => {
     const axisX = index === 0 ? left : left + width + axisGap * (index - 1);
     const align = index === 0 ? "end" : "start";
@@ -552,7 +756,7 @@ function drawAxes(svg, groups, left, top, width, height, axisGap) {
     });
     svg.appendChild(axisLine);
 
-    const ticks = createTicks(group.min, group.max, 5);
+    const ticks = createTicks(group.min, group.max, tickCount);
     ticks.forEach((tick) => {
       const y = top + (1 - (tick - group.min) / (group.max - group.min)) * height;
       const text = createSvg("text", {
@@ -629,21 +833,80 @@ function createIndexTicks(length, count) {
   return Array.from({ length: steps }, (_, i) => Math.round((i * (length - 1)) / (steps - 1)));
 }
 
+function getSeriesSegments(values) {
+  const segments = [];
+  let current = [];
+  values.forEach((value, index) => {
+    if (value === null || Number.isNaN(value)) {
+      if (current.length) {
+        segments.push(current);
+        current = [];
+      }
+      return;
+    }
+    current.push({ index, value });
+  });
+  if (current.length) {
+    segments.push(current);
+  }
+  return segments;
+}
+
+function buildLinePath(segment, xValues, numericX, xScale, yScale, group) {
+  if (!segment.length) {
+    return "";
+  }
+  return segment
+    .map((point, idx) => {
+      const xValue = numericX ? xValues[point.index] : point.index;
+      const x = xScale(xValue);
+      const y = yScale(point.value, group);
+      return `${idx === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+}
+
+function buildAreaPath(segment, xValues, numericX, xScale, yScale, group) {
+  if (!segment.length) {
+    return "";
+  }
+  const linePath = buildLinePath(segment, xValues, numericX, xScale, yScale, group);
+  const baseline = getBaselineValue(group);
+  const baseY = yScale(baseline, group);
+  const first = segment[0];
+  const last = segment[segment.length - 1];
+  const firstX = xScale(numericX ? xValues[first.index] : first.index);
+  const lastX = xScale(numericX ? xValues[last.index] : last.index);
+  return `${linePath} L ${lastX} ${baseY} L ${firstX} ${baseY} Z`;
+}
+
+function getBaselineValue(group) {
+  if (group.min <= 0 && group.max >= 0) {
+    return 0;
+  }
+  return group.min;
+}
+
+function getLastValue(values) {
+  for (let i = values.length - 1; i >= 0; i -= 1) {
+    const value = values[i];
+    if (value !== null && !Number.isNaN(value)) {
+      return { index: i, value };
+    }
+  }
+  return null;
+}
+
 function formatNumber(value) {
   if (!Number.isFinite(value)) {
     return "";
   }
-  const abs = Math.abs(value);
-  if (abs >= 1000000) {
-    return `${(value / 1000000).toFixed(2).replace(/\.00$/, "")}M`;
-  }
-  if (abs >= 1000) {
-    return `${(value / 1000).toFixed(2).replace(/\.00$/, "")}k`;
-  }
-  if (abs < 1) {
-    return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-  }
-  return value.toFixed(2).replace(/\.00$/, "");
+  const rounded = Math.round(value * 100) / 100;
+  const formatter = new Intl.NumberFormat("zh-CN", {
+    minimumFractionDigits: rounded % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+  return formatter.format(rounded);
 }
 
 function clamp(value, min, max) {
@@ -656,6 +919,82 @@ function createSvg(tag, attrs) {
     el.setAttribute(key, value);
   });
   return el;
+}
+
+function drawCurrentValue(series, group, xValues, numericX, xScale, yScale, bounds) {
+  const last = getLastValue(series.values);
+  if (!last) {
+    return;
+  }
+  const xValue = numericX ? xValues[last.index] : last.index;
+  const x = xScale(xValue);
+  const y = yScale(last.value, group);
+  const color = palette[series.index % palette.length];
+  const reference = createSvg("line", {
+    x1: bounds.left,
+    x2: bounds.right,
+    y1: y,
+    y2: y,
+    class: "reference-line",
+    stroke: color,
+  });
+  chart.appendChild(reference);
+
+  const dot = createSvg("circle", {
+    cx: x,
+    cy: y,
+    r: 4,
+    fill: color,
+  });
+  chart.appendChild(dot);
+
+  const label = formatNumber(last.value) || String(last.value);
+  drawValueBubble(x, y, label, color, bounds);
+}
+
+function drawValueBubble(x, y, textValue, color, bounds) {
+  const paddingX = 8;
+  const paddingY = 4;
+  const group = createSvg("g", { class: "value-bubble" });
+  const text = createSvg("text", { x: 0, y: 0 });
+  text.textContent = textValue;
+  group.appendChild(text);
+  chart.appendChild(group);
+
+  const box = text.getBBox();
+  const width = box.width + paddingX * 2;
+  const height = box.height + paddingY * 2;
+  let bubbleX = x + 10;
+  let bubbleY = y - height / 2;
+
+  if (bubbleX + width > bounds.right) {
+    bubbleX = x - width - 10;
+  }
+  if (bubbleX < bounds.left) {
+    bubbleX = bounds.left;
+  }
+  if (bubbleY < bounds.top) {
+    bubbleY = bounds.top;
+  }
+  if (bubbleY + height > bounds.bottom) {
+    bubbleY = bounds.bottom - height;
+  }
+
+  const rect = createSvg("rect", {
+    x: bubbleX,
+    y: bubbleY,
+    width,
+    height,
+    rx: 8,
+    ry: 8,
+    stroke: color,
+  });
+  group.insertBefore(rect, text);
+
+  text.setAttribute("x", bubbleX + paddingX);
+  text.setAttribute("y", bubbleY + height / 2);
+  text.setAttribute("dominant-baseline", "middle");
+  text.setAttribute("fill", color);
 }
 
 function clientPointToSvg(clientX, clientY) {
@@ -814,11 +1153,63 @@ function setRange(start, end) {
 
 function renderSummary(groups) {
   axisSummary.innerHTML = "";
+  if (!groups.length) {
+    axisSummary.innerHTML = "<span>暂无数据</span>";
+    return;
+  }
   groups.forEach((group, index) => {
-    const pill = document.createElement("div");
-    pill.className = "axis-pill";
-    pill.textContent = `Y 轴 ${index + 1}: ${group.series.map((s) => s.name).join(" / ")}`;
-    axisSummary.appendChild(pill);
+    const override = axisOverrides.get(group.key) || { min: group.min, max: group.max };
+    const row = document.createElement("div");
+    row.className = "axis-control";
+
+    const info = document.createElement("div");
+    info.className = "axis-info";
+    const title = document.createElement("div");
+    title.className = "axis-title";
+    title.textContent = `Y 轴 ${index + 1}`;
+    const names = document.createElement("div");
+    names.className = "axis-series";
+    names.textContent = group.series.map((series) => series.name).join(" / ");
+    info.appendChild(title);
+    info.appendChild(names);
+
+    const inputs = document.createElement("div");
+    inputs.className = "axis-inputs";
+
+    const minLabel = document.createElement("label");
+    minLabel.textContent = "最小值";
+    const minInput = document.createElement("input");
+    minInput.type = "number";
+    minInput.step = "any";
+    minInput.value = String(override.min);
+    minLabel.appendChild(minInput);
+
+    const maxLabel = document.createElement("label");
+    maxLabel.textContent = "最大值";
+    const maxInput = document.createElement("input");
+    maxInput.type = "number";
+    maxInput.step = "any";
+    maxInput.value = String(override.max);
+    maxLabel.appendChild(maxInput);
+
+    const handleChange = () => {
+      const minValue = Number(minInput.value);
+      const maxValue = Number(maxInput.value);
+      if (!Number.isFinite(minValue) || !Number.isFinite(maxValue) || minValue >= maxValue) {
+        return;
+      }
+      axisOverrides.set(group.key, { min: minValue, max: maxValue });
+      refreshChart();
+    };
+
+    minInput.addEventListener("change", handleChange);
+    maxInput.addEventListener("change", handleChange);
+
+    inputs.appendChild(minLabel);
+    inputs.appendChild(maxLabel);
+    row.appendChild(info);
+    row.appendChild(inputs);
+    axisSummary.appendChild(row);
   });
 }
 

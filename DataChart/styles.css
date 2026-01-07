@@ -195,6 +195,30 @@ body {
   font-size: 0.95rem;
 }
 
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.settings-block {
+  background: #f7f8fb;
+  border-radius: 18px;
+  padding: 16px;
+  border: 1px solid var(--stroke);
+}
+
+.settings-head h3 {
+  font-size: 1.05rem;
+  margin-bottom: 4px;
+}
+
+.settings-head p {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+
 .control label {
   display: block;
   font-size: 0.75rem;
@@ -217,6 +241,105 @@ body {
   gap: 12px;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.axis-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.axis-info {
+  display: grid;
+  gap: 4px;
+}
+
+.axis-title {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.axis-series {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.axis-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.axis-inputs label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.axis-inputs input {
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  padding: 6px 10px;
+  font-weight: 600;
+  width: 120px;
+}
+
+.series-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.series-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.series-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.series-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.series-options select {
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  padding: 6px 10px;
+  font-weight: 600;
+  background: #fff;
+}
+
+.series-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 .axis-pill {
@@ -296,11 +419,35 @@ svg text {
   stroke-width: 2.5;
 }
 
+.series-area {
+  opacity: 0.2;
+}
+
+.series-bar {
+  opacity: 0.75;
+}
+
 .hover-line {
   stroke: rgba(15, 23, 42, 0.45);
   stroke-width: 1;
   stroke-dasharray: 6 6;
   pointer-events: none;
+}
+
+.reference-line {
+  stroke-width: 1;
+  stroke-dasharray: 5 5;
+  opacity: 0.6;
+}
+
+.value-bubble rect {
+  fill: #fff;
+  stroke-width: 1;
+  opacity: 0.95;
+}
+
+.value-bubble text {
+  font-weight: 600;
 }
 
 .range-slider {
@@ -382,5 +529,9 @@ svg text {
 
   #chart {
     height: 320px;
+  }
+
+  .axis-inputs input {
+    width: 100%;
   }
 }
