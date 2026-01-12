@@ -4,6 +4,8 @@ const chart = document.getElementById("chart");
 const legend = document.getElementById("legend");
 const axisSummary = document.getElementById("axisSummary");
 const seriesControls = document.getElementById("seriesControls");
+const dataSourceSelect = document.getElementById("dataSourceSelect");
+const dataSourceNote = document.getElementById("dataSourceNote");
 const seriesCount = document.getElementById("seriesCount");
 const rangeSlider = document.getElementById("rangeSlider");
 const rangeTrack = document.getElementById("rangeTrack");
@@ -19,6 +21,8 @@ let sliderPadding = { left: 0, right: 0 };
 const seriesStyles = new Map();
 const axisOverrides = new Map();
 let dropdownListenerAttached = false;
+let dataSources = [];
+const dataSourceManifest = "./data/sources.json";
 
 const colorOptions = [
   "#00b894",
@@ -59,8 +63,79 @@ fileInput.addEventListener("change", (event) => {
 });
 
 sampleBtn.addEventListener("click", () => {
+  if (dataSources.length) {
+    loadDataSource(dataSources[0].file);
+    return;
+  }
   handleCSV(sampleCSV);
 });
+
+if (dataSourceSelect) {
+  dataSourceSelect.addEventListener("change", () => {
+    const file = dataSourceSelect.value;
+    if (!file) {
+      return;
+    }
+    loadDataSource(file);
+  });
+}
+
+function setDataSourceNote(message) {
+  if (!dataSourceNote) {
+    return;
+  }
+  dataSourceNote.textContent = message;
+}
+
+async function loadDataSourceList() {
+  if (!dataSourceSelect) {
+    return;
+  }
+  dataSourceSelect.innerHTML = "<option value=\"\">请选择 CSV 文件</option>";
+  try {
+    const response = await fetch(dataSourceManifest, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("failed");
+    }
+    const payload = await response.json();
+    const list = Array.isArray(payload.sources) ? payload.sources : [];
+    dataSources = list.filter((item) => item && item.file);
+    if (!dataSources.length) {
+      setDataSourceNote("未找到可用数据源，可继续上传 CSV。");
+      return;
+    }
+    dataSources.forEach((source) => {
+      const option = document.createElement("option");
+      option.value = source.file;
+      option.textContent = source.label || source.file;
+      dataSourceSelect.appendChild(option);
+    });
+    setDataSourceNote("可从 data 目录选择 CSV。");
+  } catch (error) {
+    dataSources = [];
+    setDataSourceNote("未读取到数据源清单，仍可上传 CSV。");
+  }
+}
+
+async function loadDataSource(file) {
+  const source = dataSources.find((item) => item.file === file);
+  const label = source?.label || file;
+  const url = file.startsWith("http") ? file : `./data/${file}`;
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("failed");
+    }
+    const text = await response.text();
+    handleCSV(text);
+    if (dataSourceSelect) {
+      dataSourceSelect.value = file;
+    }
+    setDataSourceNote(`已加载：${label}`);
+  } catch (error) {
+    setDataSourceNote(`加载失败：${label}`);
+  }
+}
 
 function handleCSV(text) {
   const rows = parseCSV(text);
@@ -1475,4 +1550,5 @@ window.addEventListener("resize", () => {
   }
 });
 
+loadDataSourceList();
 renderEmpty("请上传 CSV 或加载示例数据。");

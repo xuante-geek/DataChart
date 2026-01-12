@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "label": "示例数据",
+      "file": "sample.csv"
+    },
+    {
+      "label": "市场温度",
+      "file": "market_temperature.csv"
+    }
+  ]
+}
