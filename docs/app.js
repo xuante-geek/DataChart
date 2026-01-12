@@ -638,9 +638,17 @@ function renderChart(dataset, visibleSeries) {
   });
   chart.appendChild(hoverDots);
 
+  const hoverXBubble = createSvg("g", {
+    class: "hover-x-bubble",
+    opacity: "0",
+  });
+  chart.appendChild(hoverXBubble);
+
   hoverState = {
     line: hoverLine,
     dots: hoverDots,
+    xBubble: hoverXBubble,
+    axisY: paddingTop + chartHeight,
     left: paddingLeft,
     right: paddingLeft + chartWidth,
     top: paddingTop,
@@ -698,6 +706,7 @@ function toggleSeries(seriesId) {
   const isVisible = visibility.get(seriesId) !== false;
   visibility.set(seriesId, !isVisible);
   updateLegend();
+  updateSeriesControls();
   updateSeriesCount();
   refreshChart();
 }
@@ -771,7 +780,8 @@ function updateSeriesControls() {
     const style = getSeriesStyle(series.id);
     const color = getSeriesColor(series);
     const row = document.createElement("div");
-    row.className = "series-row";
+    const isVisible = visibility.get(series.id) !== false;
+    row.className = `series-row${isVisible ? "" : " series-row--hidden"}`;
 
     const label = document.createElement("div");
     label.className = "series-label";
@@ -1358,6 +1368,54 @@ function updateHoverDots(hoverPoint) {
   dots.setAttribute("opacity", "1");
 }
 
+function updateHoverXBubble(hoverPoint, cursorY) {
+  if (!hoverState || !hoverState.xBubble) {
+    return;
+  }
+  const { xBubble, xValues, numericX, left, right, top, bottom } = hoverState;
+  while (xBubble.firstChild) {
+    xBubble.removeChild(xBubble.firstChild);
+  }
+  const xValue = xValues[hoverPoint.index];
+  const label = numericX ? formatNumber(xValue) : String(xValue);
+  const paddingX = 8;
+  const paddingY = 4;
+  const text = createSvg("text", { x: 0, y: 0 });
+  text.textContent = label;
+  xBubble.appendChild(text);
+  const box = text.getBBox();
+  const width = box.width + paddingX * 2;
+  const height = box.height + paddingY * 2;
+  let bubbleX = hoverPoint.x - width / 2;
+  let bubbleY = cursorY - height - 12;
+  if (bubbleX < left) {
+    bubbleX = left;
+  }
+  if (bubbleX + width > right) {
+    bubbleX = right - width;
+  }
+  if (bubbleY < top) {
+    bubbleY = cursorY + 12;
+  }
+  if (bubbleY + height > bottom) {
+    bubbleY = bottom - height;
+  }
+  const rect = createSvg("rect", {
+    x: bubbleX,
+    y: bubbleY,
+    width,
+    height,
+    rx: 8,
+    ry: 8,
+  });
+  xBubble.insertBefore(rect, text);
+  text.setAttribute("x", bubbleX + width / 2);
+  text.setAttribute("y", bubbleY + height / 2);
+  text.setAttribute("text-anchor", "middle");
+  text.setAttribute("dominant-baseline", "middle");
+  xBubble.setAttribute("opacity", "1");
+}
+
 function handleHoverMove(event) {
   if (!hoverState || !hoverState.line) {
     return;
@@ -1373,6 +1431,9 @@ function handleHoverMove(event) {
     if (hoverState.dots) {
       hoverState.dots.setAttribute("opacity", "0");
     }
+    if (hoverState.xBubble) {
+      hoverState.xBubble.setAttribute("opacity", "0");
+    }
     return;
   }
 
@@ -1385,6 +1446,7 @@ function handleHoverMove(event) {
   hoverState.line.setAttribute("x1", hoverPoint.x);
   hoverState.line.setAttribute("x2", hoverPoint.x);
   updateHoverDots(hoverPoint);
+  updateHoverXBubble(hoverPoint, svgPoint.y);
 }
 
 function hideHoverLine() {
@@ -1393,6 +1455,9 @@ function hideHoverLine() {
   }
   if (hoverState && hoverState.dots) {
     hoverState.dots.setAttribute("opacity", "0");
+  }
+  if (hoverState && hoverState.xBubble) {
+    hoverState.xBubble.setAttribute("opacity", "0");
   }
 }
 

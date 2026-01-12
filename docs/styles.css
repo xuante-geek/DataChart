@@ -357,6 +357,11 @@ body {
   border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.series-row--hidden {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
 .series-label {
   display: flex;
   align-items: center;
@@ -533,7 +538,7 @@ svg text {
 
 .series-line {
   fill: none;
-  stroke-width: 2.5;
+  stroke-width: 1.25;
 }
 
 .series-area {
@@ -559,6 +564,18 @@ svg text {
 
 .hover-dots {
   pointer-events: none;
+}
+
+.hover-x-bubble rect {
+  fill: #fff;
+  stroke: rgba(15, 23, 42, 0.18);
+  stroke-width: 1;
+}
+
+.hover-x-bubble text {
+  fill: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .reference-line {
