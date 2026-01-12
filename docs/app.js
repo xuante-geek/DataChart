@@ -48,27 +48,31 @@ const sampleCSV = `时间,用户访问,订单数,退款金额,服务器负载
 周六,520,78,1100,0.55
 周日,390,55,620,0.41`;
 
-fileInput.addEventListener("change", (event) => {
-  const file = event.target.files[0];
-  if (!file) {
-    return;
-  }
+if (fileInput) {
+  fileInput.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) {
+      return;
+    }
 
-  const reader = new FileReader();
-  reader.onload = (loadEvent) => {
-    const text = String(loadEvent.target.result || "");
-    handleCSV(text);
-  };
-  reader.readAsText(file);
-});
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      const text = String(loadEvent.target.result || "");
+      handleCSV(text);
+    };
+    reader.readAsText(file);
+  });
+}
 
-sampleBtn.addEventListener("click", () => {
-  if (dataSources.length) {
-    loadDataSource(dataSources[0].file);
-    return;
-  }
-  handleCSV(sampleCSV);
-});
+if (sampleBtn) {
+  sampleBtn.addEventListener("click", () => {
+    if (dataSources.length) {
+      loadDataSource(dataSources[0].file);
+      return;
+    }
+    handleCSV(sampleCSV);
+  });
+}
 
 if (dataSourceSelect) {
   dataSourceSelect.addEventListener("change", () => {
@@ -1368,11 +1372,11 @@ function updateHoverDots(hoverPoint) {
   dots.setAttribute("opacity", "1");
 }
 
-function updateHoverXBubble(hoverPoint, cursorY) {
+function updateHoverXBubble(hoverPoint) {
   if (!hoverState || !hoverState.xBubble) {
     return;
   }
-  const { xBubble, xValues, numericX, left, right, top, bottom } = hoverState;
+  const { xBubble, xValues, numericX, left, right, top } = hoverState;
   while (xBubble.firstChild) {
     xBubble.removeChild(xBubble.firstChild);
   }
@@ -1387,18 +1391,15 @@ function updateHoverXBubble(hoverPoint, cursorY) {
   const width = box.width + paddingX * 2;
   const height = box.height + paddingY * 2;
   let bubbleX = hoverPoint.x - width / 2;
-  let bubbleY = cursorY - height - 12;
+  let bubbleY = top - height - 12;
   if (bubbleX < left) {
     bubbleX = left;
   }
   if (bubbleX + width > right) {
     bubbleX = right - width;
   }
-  if (bubbleY < top) {
-    bubbleY = cursorY + 12;
-  }
-  if (bubbleY + height > bottom) {
-    bubbleY = bottom - height;
+  if (bubbleY < 6) {
+    bubbleY = 6;
   }
   const rect = createSvg("rect", {
     x: bubbleX,
@@ -1446,7 +1447,7 @@ function handleHoverMove(event) {
   hoverState.line.setAttribute("x1", hoverPoint.x);
   hoverState.line.setAttribute("x2", hoverPoint.x);
   updateHoverDots(hoverPoint);
-  updateHoverXBubble(hoverPoint, svgPoint.y);
+  updateHoverXBubble(hoverPoint);
 }
 
 function hideHoverLine() {

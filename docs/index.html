@@ -14,39 +14,8 @@
   </head>
   <body>
     <div class="page">
-      <header class="hero">
-        <div class="hero__content">
-          <p class="hero__eyebrow">DataChart</p>
-          <h1>让表格数据一眼看懂的曲线图</h1>
-          <p class="hero__desc">
-            上传 CSV 表格，自动识别列并绘制多条曲线。系统会根据数据量级自动分配多 Y 轴，保证每条曲线都清晰可读。
-          </p>
-          <div class="hero__actions">
-            <label class="upload">
-              <input id="fileInput" type="file" accept=".csv" />
-              <span>上传 CSV 文件</span>
-            </label>
-            <button class="ghost" id="sampleBtn">加载示例数据</button>
-          </div>
-          <div class="hero__meta">
-            <div>
-              <span class="meta__label">表格结构</span>
-              <span>首行/首列视为标题</span>
-            </div>
-            <div>
-              <span class="meta__label">Y 轴策略</span>
-              <span>量级差小于 10 倍共用轴</span>
-            </div>
-          </div>
-        </div>
-        <div class="hero__visual">
-          <div class="glass">
-            <div class="glass__title">实时预览</div>
-            <div class="glass__value" id="seriesCount">0 条曲线</div>
-            <div class="glass__note">请上传 CSV 或加载示例</div>
-          </div>
-          <div class="glow"></div>
-        </div>
+            <header class="site-header">
+        <h1 class="site-title">DataChart</h1>
       </header>
 
       <main class="workspace">
@@ -54,15 +23,6 @@
           <div class="panel__header">
             <div>
               <h2>图表设置</h2>
-              <p>为每组 Y 轴锁定范围，并为每条曲线配置绘图样式与当前值显示。</p>
-            </div>
-            <div class="control">
-              <label for="chartType">图表类型</label>
-              <select id="chartType" disabled>
-                <option>线形曲线</option>
-                <option>柱状</option>
-                <option>面积</option>
-              </select>
             </div>
           </div>
           <div class="panel__body">
@@ -73,9 +33,19 @@
               </div>
               <div class="data-source__control">
                 <label for="dataSourceSelect">选择文件</label>
-                <select id="dataSourceSelect">
-                  <option value="">请选择 CSV 文件</option>
-                </select>
+                <div class="data-source__actions">
+                  <label class="upload upload--primary">
+                    <input id="fileInput" type="file" accept=".csv" />
+                    <span>上传 CSV</span>
+                  </label>
+                  <select id="dataSourceSelect">
+                    <option value="">请选择 CSV 文件</option>
+                  </select>
+                </div>
+                <div class="data-source__status">
+                  <span class="status-label">曲线数</span>
+                  <span id="seriesCount">0 条曲线</span>
+                </div>
               </div>
             </div>
             <div class="settings-grid">
