@@ -1,8 +1,8 @@
 {
   "sources": [
     {
-      "label": "示例数据",
-      "file": "sample.csv"
+      "label": "股权风险溢价",
+      "file": "ERP.csv"
     },
     {
       "label": "市场温度",
