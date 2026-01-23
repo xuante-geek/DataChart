@@ -7,6 +7,18 @@
   --card: rgba(255, 255, 255, 0.78);
   --stroke: rgba(17, 18, 22, 0.08);
   --shadow: 0 30px 60px rgba(15, 23, 42, 0.12);
+  --color1: #00b894;
+  --color2: #74b9ff;
+  --color3: #0984e3;
+  --color4: #a29bfe;
+  --color5: #fdcb6e;
+  --color6: #f19066;
+  --color7: #f78fb3;
+  --color8: #d63031;
+  --color9: #dfe6e9;
+  --color10: #b2bec3;
+  --color11: #636e72;
+  --color12: #2d3436;
 }
 
 * {

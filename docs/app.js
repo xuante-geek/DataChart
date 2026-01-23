@@ -24,7 +24,7 @@ let dropdownListenerAttached = false;
 let dataSources = [];
 const dataSourceManifest = "./data/sources.json";
 
-const colorOptions = [
+const defaultColorHexes = [
   "#00b894",
   "#74b9ff",
   "#0984e3",
@@ -38,6 +38,34 @@ const colorOptions = [
   "#636e72",
   "#2d3436",
 ];
+
+const colorVars = defaultColorHexes.map((_, index) => `--color${index + 1}`);
+
+function getCssColor(varName, fallback) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return value || fallback;
+}
+
+const colorOptions = colorVars.map((varName, index) =>
+  getCssColor(varName, defaultColorHexes[index])
+);
+
+const seriesDefaultConfig = new Map([
+  ["市值/GDP分位", { colorIndex: 0, type: "line" }],
+  ["成交量/市值分位", { colorIndex: 4, type: "line" }],
+  ["融资融券/市值分位", { colorIndex: 2, type: "line" }],
+  ["股权风险溢价分位", { colorIndex: 1, type: "line" }],
+  ["全A点位", { colorIndex: 9, type: "area" }],
+  ["市场温度", { colorIndex: 5, type: "line" }],
+  ["股权风险溢价", { colorIndex: 3, type: "line" }],
+  ["十年国债收益率", { colorIndex: 6, type: "line" }],
+  ["PE-TTM-S", { colorIndex: 7, type: "line" }],
+  ["+2σ", { colorIndex: 9, type: "line" }],
+  ["+1σ", { colorIndex: 9, type: "line" }],
+  ["中位数", { colorIndex: 9, type: "line" }],
+  ["-1σ", { colorIndex: 9, type: "line" }],
+  ["-2σ", { colorIndex: 9, type: "line" }],
+]);
 
 const sampleCSV = `时间,用户访问,订单数,退款金额,服务器负载
 周一,120,22,480,0.35
@@ -164,10 +192,14 @@ function handleCSV(text) {
   axisOverrides.clear();
   dataset.series.forEach((series) => {
     visibility.set(series.id, true);
+    const name = (series.name || "").trim();
+    const preset = seriesDefaultConfig.get(name);
     seriesStyles.set(series.id, {
-      type: "line",
+      type: preset ? preset.type : "line",
       showCurrent: false,
-      color: colorOptions[series.index % colorOptions.length],
+      color: preset
+        ? colorOptions[preset.colorIndex]
+        : colorOptions[series.index % colorOptions.length],
     });
   });
 
