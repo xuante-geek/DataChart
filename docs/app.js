@@ -10,6 +10,7 @@ const seriesCount = document.getElementById("seriesCount");
 const rangeSlider = document.getElementById("rangeSlider");
 const rangeTrack = document.getElementById("rangeTrack");
 const rangeSelection = document.getElementById("rangeSelection");
+const downloadChartBtn = document.getElementById("downloadChart");
 
 let currentDataset = null;
 let currentRange = null;
@@ -110,6 +111,304 @@ if (dataSourceSelect) {
     }
     loadDataSource(file);
   });
+}
+
+if (downloadChartBtn) {
+  downloadChartBtn.addEventListener("click", () => {
+    downloadChartImage();
+  });
+}
+
+function downloadChartImage() {
+  if (!currentDataset || !chart) {
+    return;
+  }
+  const exportSvg = buildExportSvg();
+  if (!exportSvg) {
+    return;
+  }
+  const { svg, width, height } = exportSvg;
+  const serializer = new XMLSerializer();
+  const svgString = serializer.serializeToString(svg);
+  const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.onload = () => {
+    const scale = window.devicePixelRatio || 1;
+    const legendItems = getLegendItemsForExport();
+    const legendStyle = legend ? getComputedStyle(legend) : null;
+    const legendFontSize = legendStyle ? parseFloat(legendStyle.fontSize) : 13;
+    const legendFontFamily = legendStyle
+      ? legendStyle.fontFamily
+      : 'Manrope, "SF Pro Display", "PingFang SC", sans-serif';
+    const legendLayout = layoutLegendItems(
+      legendItems,
+      width,
+      24,
+      24,
+      legendFontSize,
+      legendFontFamily
+    );
+    const legendHeight = legendLayout.height;
+    const chartOffsetY = legendHeight ? legendHeight + 24 : 0;
+    const canvasHeight = height + chartOffsetY + 24;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(canvasHeight * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    ctx.scale(scale, scale);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, canvasHeight);
+
+    if (legendLayout.height) {
+      drawLegendPills(ctx, legendLayout, legendFontSize, legendFontFamily);
+    }
+
+    ctx.drawImage(image, 0, chartOffsetY, width, height);
+    try {
+      const dataUrl = canvas.toDataURL("image/png");
+      if (dataUrl) {
+        const link = document.createElement("a");
+        const now = new Date();
+        const stamp = now.toISOString().slice(0, 10);
+        link.download = `chart-${stamp}.png`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        return;
+      }
+    } catch (error) {
+      // ignore and fallback to blob/svg
+    }
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        URL.revokeObjectURL(url);
+        downloadSvgFallback(svg);
+        return;
+      }
+      const link = document.createElement("a");
+      const now = new Date();
+      const stamp = now.toISOString().slice(0, 10);
+      link.download = `chart-${stamp}.png`;
+      link.href = URL.createObjectURL(blob);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  };
+  image.onerror = () => {
+    URL.revokeObjectURL(url);
+  };
+  image.src = url;
+}
+
+function buildExportSvg() {
+  const viewBox = chart.getAttribute("viewBox");
+  let width = 1100;
+  let height = 540;
+  if (viewBox) {
+    const parts = viewBox.split(" ").map(Number);
+    if (parts.length === 4) {
+      width = parts[2];
+      height = parts[3];
+    }
+  } else {
+    const rect = chart.getBoundingClientRect();
+    width = rect.width || width;
+    height = rect.height || height;
+  }
+
+  const svg = chart.cloneNode(true);
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  svg.querySelectorAll(".hover-line, .hover-dots, .hover-x-bubble").forEach((node) => node.remove());
+
+  const ns = "http://www.w3.org/2000/svg";
+  const background = document.createElementNS(ns, "rect");
+  background.setAttribute("x", "0");
+  background.setAttribute("y", "0");
+  background.setAttribute("width", String(width));
+  background.setAttribute("height", String(height));
+  background.setAttribute("fill", "#ffffff");
+  svg.insertBefore(background, svg.firstChild);
+
+  const style = document.createElementNS(ns, "style");
+  style.textContent = `
+    text { font-family: "Manrope", "SF Pro Display", "PingFang SC", sans-serif; fill: #5b606b; font-size: 12px; }
+    .axis-line { stroke: rgba(17, 18, 22, 0.2); stroke-width: 1; }
+    .grid-line { stroke: rgba(17, 18, 22, 0.08); stroke-width: 1; }
+    .series-line { fill: none; stroke-width: 1.25; }
+    .series-area { opacity: 0.2; }
+    .series-bar { opacity: 0.75; }
+    .hover-dot { fill: #fff; stroke-width: 2; }
+    .reference-line { stroke-width: 1; stroke-dasharray: 5 5; opacity: 0.6; }
+    .value-bubble rect { fill: #fff; stroke-width: 1; opacity: 0.95; }
+    .value-bubble text { font-weight: 600; }
+  `;
+  svg.insertBefore(style, svg.firstChild);
+
+  const title = document.createElementNS(ns, "text");
+  const titleText = document.querySelector(".chart-panel .panel__header h2");
+  title.textContent = titleText ? titleText.textContent.trim() : "曲线图";
+  title.setAttribute("x", String(width / 2));
+  title.setAttribute("y", "24");
+  title.setAttribute("text-anchor", "middle");
+  title.setAttribute("font-size", "16");
+  title.setAttribute("font-weight", "600");
+  title.setAttribute("fill", "#111216");
+  svg.appendChild(title);
+
+  return { svg, width, height };
+}
+
+function downloadSvgFallback(svg) {
+  try {
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svg);
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const link = document.createElement("a");
+    const now = new Date();
+    const stamp = now.toISOString().slice(0, 10);
+    link.download = `chart-${stamp}.svg`;
+    link.href = URL.createObjectURL(svgBlob);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(link.href);
+  } catch (error) {
+    // no-op
+  }
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function getLegendItemsForExport() {
+  if (legend) {
+    const items = Array.from(legend.querySelectorAll(".legend__item"));
+    return items
+      .filter((item) => !item.classList.contains("legend__item--hidden"))
+      .map((item) => {
+        const label = item.querySelector("span:last-child");
+        const swatch = item.querySelector(".legend__swatch");
+        const color = swatch
+          ? swatch.style.backgroundColor || getComputedStyle(swatch).backgroundColor
+          : "#5b606b";
+        return {
+          label: label ? label.textContent.trim() : "",
+          color,
+        };
+      })
+      .filter((item) => item.label);
+  }
+
+  if (!currentDataset) {
+    return [];
+  }
+
+  return currentDataset.series
+    .filter((series) => visibility.get(series.id) !== false && series.hasData)
+    .map((series) => ({
+      label: series.name || series.id,
+      color: getSeriesColor(series),
+    }));
+}
+
+function layoutLegendItems(items, width, startX, startY, fontSize, fontFamily) {
+  if (!items.length) {
+    return { items: [], height: 0 };
+  }
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) {
+    return { items: [], height: 0 };
+  }
+  ctx.font = `${fontSize}px ${fontFamily}`;
+  const gap = 12;
+  const pillPaddingX = 14;
+  const swatchRadius = 5;
+  const pillHeight = Math.max(26, fontSize + 12);
+  const maxWidth = width - startX * 2;
+
+  let x = startX;
+  let y = startY;
+  const laidOut = [];
+  items.forEach((item) => {
+    const labelWidth = ctx.measureText(item.label).width;
+    const pillWidth = pillPaddingX * 2 + swatchRadius * 2 + 8 + labelWidth;
+    if (x + pillWidth > startX + maxWidth) {
+      x = startX;
+      y += pillHeight + gap;
+    }
+    laidOut.push({
+      ...item,
+      x,
+      y,
+      width: pillWidth,
+      height: pillHeight,
+      swatchRadius,
+      paddingX: pillPaddingX,
+    });
+    x += pillWidth + gap;
+  });
+  const height = laidOut.length ? y - startY + pillHeight : 0;
+  return { items: laidOut, height };
+}
+
+function drawLegendPills(ctx, layout, fontSize, fontFamily) {
+  if (!layout.items.length) {
+    return;
+  }
+  ctx.save();
+  ctx.font = `${fontSize}px ${fontFamily}`;
+  ctx.textBaseline = "middle";
+  layout.items.forEach((item) => {
+    ctx.fillStyle = "#f5f6fa";
+    drawRoundedRect(ctx, item.x, item.y, item.width, item.height, item.height / 2);
+    ctx.fill();
+
+    ctx.fillStyle = item.color;
+    ctx.beginPath();
+    ctx.arc(
+      item.x + item.paddingX + item.swatchRadius,
+      item.y + item.height / 2,
+      item.swatchRadius,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+
+    ctx.fillStyle = "#5b606b";
+    ctx.fillText(
+      item.label,
+      item.x + item.paddingX + item.swatchRadius * 2 + 8,
+      item.y + item.height / 2
+    );
+  });
+  ctx.restore();
 }
 
 function setDataSourceNote(message) {

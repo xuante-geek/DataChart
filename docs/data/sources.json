@@ -2,11 +2,11 @@
   "sources": [
     {
       "label": "股权风险溢价",
-      "file": "ERP.csv"
+      "file": "ERP_Rolling Calculation.csv"
     },
     {
       "label": "市场温度",
-      "file": "market_temperature.csv"
+      "file": "Market_Thermometer.csv"
     }
   ]
 }
