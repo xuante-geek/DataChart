@@ -21,6 +21,7 @@ let chartLayout = null;
 let sliderPadding = { left: 0, right: 0 };
 const seriesStyles = new Map();
 const axisOverrides = new Map();
+const axisForcedSeries = new Set();
 let dropdownListenerAttached = false;
 let dataSources = [];
 const dataSourceManifest = "./data/sources.json";
@@ -56,11 +57,11 @@ const seriesDefaultConfig = new Map([
   ["成交量/市值分位", { colorIndex: 4, type: "line" }],
   ["融资融券/市值分位", { colorIndex: 2, type: "line" }],
   ["股权风险溢价分位", { colorIndex: 1, type: "line" }],
-  ["全A点位", { colorIndex: 9, type: "area" }],
+  ["全A点位", { colorIndex: 10, type: "area" }],
   ["市场温度", { colorIndex: 5, type: "line" }],
-  ["股权风险溢价", { colorIndex: 3, type: "line" }],
+  ["股权风险溢价", { colorIndex: 7, type: "line" }],
   ["十年国债收益率", { colorIndex: 6, type: "line" }],
-  ["PE-TTM-S", { colorIndex: 7, type: "line" }],
+  ["PE-TTM-S", { colorIndex: 3, type: "line" }],
   ["+2σ", { colorIndex: 9, type: "line" }],
   ["+1σ", { colorIndex: 9, type: "line" }],
   ["中位数", { colorIndex: 9, type: "line" }],
@@ -489,6 +490,7 @@ function handleCSV(text) {
   visibility.clear();
   seriesStyles.clear();
   axisOverrides.clear();
+  axisForcedSeries.clear();
   dataset.series.forEach((series) => {
     visibility.set(series.id, true);
     const name = (series.name || "").trim();
@@ -633,9 +635,22 @@ function groupSeries(seriesList) {
   const groups = [];
 
   sorted.forEach((series) => {
+    if (axisForcedSeries.has(series.id)) {
+      groups.push({
+        series: [series],
+        maxAbs: series.maxAbs,
+        minAbs: series.maxAbs,
+        forced: true,
+      });
+      return;
+    }
+
     let placed = false;
 
     for (const group of groups) {
+      if (group.forced) {
+        continue;
+      }
       const newMax = Math.max(group.maxAbs, series.maxAbs);
       const newMin = Math.min(group.minAbs, series.maxAbs);
       const ratio = newMin === 0 ? (newMax === 0 ? 1 : Infinity) : newMax / newMin;
@@ -654,6 +669,7 @@ function groupSeries(seriesList) {
         series: [series],
         maxAbs: series.maxAbs,
         minAbs: series.maxAbs,
+        forced: false,
       });
     }
   });
@@ -749,6 +765,7 @@ function renderEmpty(message) {
   visibility.clear();
   seriesStyles.clear();
   axisOverrides.clear();
+  axisForcedSeries.clear();
   hoverState = null;
   chartLayout = null;
   sliderPadding = { left: 0, right: 0 };
@@ -1244,6 +1261,24 @@ function updateSeriesControls() {
       });
     }
 
+    const axisToggle = document.createElement("label");
+    axisToggle.className = "series-toggle";
+    const axisCheckbox = document.createElement("input");
+    axisCheckbox.type = "checkbox";
+    axisCheckbox.checked = axisForcedSeries.has(series.id);
+    axisCheckbox.addEventListener("change", () => {
+      if (axisCheckbox.checked) {
+        axisForcedSeries.add(series.id);
+      } else {
+        axisForcedSeries.delete(series.id);
+      }
+      refreshChart();
+    });
+    const axisText = document.createElement("span");
+    axisText.textContent = "独立Y轴";
+    axisToggle.appendChild(axisCheckbox);
+    axisToggle.appendChild(axisText);
+
     const toggle = document.createElement("label");
     toggle.className = "series-toggle";
     const checkbox = document.createElement("input");
@@ -1261,6 +1296,7 @@ function updateSeriesControls() {
     options.appendChild(select);
     options.appendChild(dropdown);
     options.appendChild(colorInput);
+    options.appendChild(axisToggle);
     options.appendChild(toggle);
     row.appendChild(label);
     row.appendChild(options);
