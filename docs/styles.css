@@ -690,10 +690,8 @@ svg text {
 }
 
 .grid-line {
-  stroke: rgba(17, 18, 22, 0.06);
+  stroke: rgba(17, 18, 22, 0.1);
   stroke-width: 1;
-  stroke-dasharray: 2 6;
-  stroke-linecap: round;
 }
 
 .series-line {
