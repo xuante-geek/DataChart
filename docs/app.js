@@ -1,30 +1,33 @@
 const fileInput = document.getElementById("fileInput");
-const sampleBtn = document.getElementById("sampleBtn");
-const chart = document.getElementById("chart");
-const legend = document.getElementById("legend");
-const axisSummary = document.getElementById("axisSummary");
-const seriesControls = document.getElementById("seriesControls");
-const dataSourceSelect = document.getElementById("dataSourceSelect");
+let chart = document.getElementById("chart");
+let legend = document.getElementById("legend");
+let axisSummary = document.getElementById("axisSummary");
+let seriesControls = document.getElementById("seriesControls");
 const dataSourceNote = document.getElementById("dataSourceNote");
-const seriesCount = document.getElementById("seriesCount");
-const rangeSlider = document.getElementById("rangeSlider");
-const rangeTrack = document.getElementById("rangeTrack");
-const rangeSelection = document.getElementById("rangeSelection");
+let seriesCount = document.getElementById("seriesCount");
+let rangeSlider = document.getElementById("rangeSlider");
+let rangeTrack = document.getElementById("rangeTrack");
+let rangeSelection = document.getElementById("rangeSelection");
 const downloadChartBtn = document.getElementById("downloadChart");
+const builtinCharts = document.getElementById("builtinCharts");
 
 let currentDataset = null;
 let currentRange = null;
-const visibility = new Map();
+let visibility = new Map();
 let hoverState = null;
 let dragState = null;
 let chartLayout = null;
 let sliderPadding = { left: 0, right: 0 };
-const seriesStyles = new Map();
-const axisOverrides = new Map();
-const axisForcedSeries = new Set();
+let seriesStyles = new Map();
+let axisOverrides = new Map();
+let axisForcedSeries = new Set();
 let dropdownListenerAttached = false;
 let dataSources = [];
 const dataSourceManifest = "./data/sources.json";
+
+let activeInstance = null;
+const builtinInstances = [];
+let uploadInstance = null;
 
 const defaultColorHexes = [
   "#00b894",
@@ -69,15 +72,6 @@ const seriesDefaultConfig = new Map([
   ["-2σ", { colorIndex: 9, type: "line" }],
 ]);
 
-const sampleCSV = `时间,用户访问,订单数,退款金额,服务器负载
-周一,120,22,480,0.35
-周二,200,28,520,0.38
-周三,260,35,450,0.52
-周四,310,42,700,0.57
-周五,460,60,980,0.62
-周六,520,78,1100,0.55
-周日,390,55,620,0.41`;
-
 if (fileInput) {
   fileInput.addEventListener("change", (event) => {
     const file = event.target.files[0];
@@ -88,35 +82,23 @@ if (fileInput) {
     const reader = new FileReader();
     reader.onload = (loadEvent) => {
       const text = String(loadEvent.target.result || "");
-      handleCSV(text);
+      if (uploadInstance) {
+        withInstance(uploadInstance, () => handleCSV(text));
+      } else {
+        handleCSV(text);
+      }
     };
     reader.readAsText(file);
   });
 }
 
-if (sampleBtn) {
-  sampleBtn.addEventListener("click", () => {
-    if (dataSources.length) {
-      loadDataSource(dataSources[0].file);
-      return;
-    }
-    handleCSV(sampleCSV);
-  });
-}
-
-if (dataSourceSelect) {
-  dataSourceSelect.addEventListener("change", () => {
-    const file = dataSourceSelect.value;
-    if (!file) {
-      return;
-    }
-    loadDataSource(file);
-  });
-}
-
 if (downloadChartBtn) {
   downloadChartBtn.addEventListener("click", () => {
-    downloadChartImage();
+    if (uploadInstance) {
+      withInstance(uploadInstance, downloadChartImage);
+    } else {
+      downloadChartImage();
+    }
   });
 }
 
@@ -261,7 +243,7 @@ function buildExportSvg() {
   svg.insertBefore(style, svg.firstChild);
 
   const title = document.createElementNS(ns, "text");
-  const titleText = document.querySelector(".chart-panel .panel__header h2");
+  const titleText = document.querySelector("#uploadChartPanel .panel__header h2");
   title.textContent = titleText ? titleText.textContent.trim() : "曲线图";
   title.setAttribute("x", String(width / 2));
   title.setAttribute("y", "24");
@@ -419,11 +401,287 @@ function setDataSourceNote(message) {
   dataSourceNote.textContent = message;
 }
 
-async function loadDataSourceList() {
-  if (!dataSourceSelect) {
+function bindInstance(instance) {
+  activeInstance = instance;
+  if (!dragState || dragState.instance === instance) {
+    dragState = instance.dragState;
+  }
+  chart = instance.chart;
+  legend = instance.legend;
+  axisSummary = instance.axisSummary;
+  seriesControls = instance.seriesControls;
+  seriesCount = instance.seriesCount;
+  rangeSlider = instance.rangeSlider;
+  rangeTrack = instance.rangeTrack;
+  rangeSelection = instance.rangeSelection;
+  currentDataset = instance.currentDataset;
+  currentRange = instance.currentRange;
+  visibility = instance.visibility;
+  hoverState = instance.hoverState;
+  chartLayout = instance.chartLayout;
+  sliderPadding = instance.sliderPadding;
+  seriesStyles = instance.seriesStyles;
+  axisOverrides = instance.axisOverrides;
+  axisForcedSeries = instance.axisForcedSeries;
+}
+
+function syncInstance(instance) {
+  instance.currentDataset = currentDataset;
+  instance.currentRange = currentRange;
+  instance.hoverState = hoverState;
+  instance.dragState = dragState;
+  instance.chartLayout = chartLayout;
+  instance.sliderPadding = sliderPadding;
+}
+
+function withInstance(instance, fn) {
+  if (!instance) {
+    return null;
+  }
+  bindInstance(instance);
+  const result = fn();
+  syncInstance(instance);
+  return result;
+}
+
+function createChartInstance(options) {
+  const instance = {
+    id: options.id || "",
+    title: options.title || "",
+    axisLabelPrefix: options.axisLabelPrefix || "",
+    styleScope: options.styleScope || "upload",
+    chart: options.chart,
+    legend: options.legend,
+    axisSummary: options.axisSummary || null,
+    seriesControls: options.seriesControls || null,
+    seriesCount: options.seriesCount || null,
+    rangeSlider: options.rangeSlider || null,
+    rangeTrack: options.rangeTrack || null,
+    rangeSelection: options.rangeSelection || null,
+    currentDataset: null,
+    currentRange: null,
+    visibility: new Map(),
+    hoverState: null,
+    dragState: null,
+    chartLayout: null,
+    sliderPadding: { left: 0, right: 0 },
+    seriesStyles: new Map(),
+    axisOverrides: new Map(),
+    axisForcedSeries: new Set(),
+  };
+  attachInstanceEvents(instance);
+  return instance;
+}
+
+function attachInstanceEvents(instance) {
+  if (instance.chart) {
+    instance.chart.addEventListener("pointermove", (event) => {
+      withInstance(instance, () => handleHoverMove(event));
+    });
+    instance.chart.addEventListener("pointerleave", () => {
+      withInstance(instance, hideHoverLine);
+    });
+  }
+  if (instance.rangeSelection) {
+    instance.rangeSelection.addEventListener("pointerdown", (event) => {
+      withInstance(instance, () => handleRangePointerDown(event));
+    });
+  }
+}
+
+function getInlineSources() {
+  const list = window.__DATA_SOURCES__;
+  return Array.isArray(list) ? list : [];
+}
+
+function getInlineFiles() {
+  const files = window.__DATA_FILES__;
+  if (!files || typeof files !== "object") {
+    return {};
+  }
+  return files;
+}
+
+function getSourceLabel(source) {
+  if (!source) {
+    return "内置数据";
+  }
+  const label = String(source.label || "").trim();
+  if (label) {
+    return label;
+  }
+  const file = String(source.file || "").trim();
+  if (!file) {
+    return "内置数据";
+  }
+  const withoutExt = file.replace(/\.[^/.]+$/, "");
+  return withoutExt || file;
+}
+
+function createBuiltinGroup(title) {
+  const group = document.createElement("section");
+  group.className = "chart-group";
+
+  const header = document.createElement("div");
+  header.className = "group-header";
+  const heading = document.createElement("h2");
+  heading.textContent = `曲线图——${title}`;
+  const desc = document.createElement("p");
+  desc.textContent = "内置数据自动生成。";
+  header.appendChild(heading);
+  header.appendChild(desc);
+
+  const content = document.createElement("div");
+  content.className = "group-content";
+
+  const settingsGrid = document.createElement("div");
+  settingsGrid.className = "settings-grid";
+
+  const axisPanel = document.createElement("section");
+  axisPanel.className = "panel settings-panel";
+  const axisHead = document.createElement("div");
+  axisHead.className = "settings-head";
+  const axisTitle = document.createElement("h3");
+  axisTitle.textContent = "Y 轴范围";
+  const axisDesc = document.createElement("p");
+  axisDesc.textContent = "支持按数据分组后为每个 Y 轴设置最小/最大值。";
+  axisHead.appendChild(axisTitle);
+  axisHead.appendChild(axisDesc);
+  const axisSummaryEl = document.createElement("div");
+  axisSummaryEl.className = "axis-summary";
+  axisPanel.appendChild(axisHead);
+  axisPanel.appendChild(axisSummaryEl);
+
+  const stylePanel = document.createElement("section");
+  stylePanel.className = "panel settings-panel";
+  const styleHead = document.createElement("div");
+  styleHead.className = "settings-head";
+  const styleTitle = document.createElement("h3");
+  styleTitle.textContent = "曲线样式";
+  const styleDesc = document.createElement("p");
+  styleDesc.textContent = "为每条曲线指定类型，并设置显示当前值。";
+  styleHead.appendChild(styleTitle);
+  styleHead.appendChild(styleDesc);
+  const seriesControlsEl = document.createElement("div");
+  seriesControlsEl.className = "series-controls";
+  stylePanel.appendChild(styleHead);
+  stylePanel.appendChild(seriesControlsEl);
+
+  settingsGrid.appendChild(axisPanel);
+  settingsGrid.appendChild(stylePanel);
+
+  const panel = document.createElement("section");
+  panel.className = "panel chart-panel chart-panel--static";
+
+  const panelHeader = document.createElement("div");
+  panelHeader.className = "panel__header";
+
+  const panelText = document.createElement("div");
+  const panelTitle = document.createElement("h2");
+  panelTitle.textContent = `曲线图——${title}`;
+  const panelDesc = document.createElement("p");
+  panelDesc.textContent = "支持多列数据自动绘制，自动生成多个 Y 轴。";
+  panelText.appendChild(panelTitle);
+  panelText.appendChild(panelDesc);
+
+  const actions = document.createElement("div");
+  actions.className = "chart-actions";
+  const legendBlock = document.createElement("div");
+  legendBlock.className = "legend";
+  actions.appendChild(legendBlock);
+
+  panelHeader.appendChild(panelText);
+  panelHeader.appendChild(actions);
+
+  const wrap = document.createElement("div");
+  wrap.className = "chart-wrap";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("chart-output");
+  svg.setAttribute("viewBox", "0 0 1100 540");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `${title}曲线图`);
+  wrap.appendChild(svg);
+
+  const slider = document.createElement("div");
+  slider.className = "range-slider is-hidden";
+  const track = document.createElement("div");
+  track.className = "range-track";
+  const selection = document.createElement("div");
+  selection.className = "range-selection";
+  const leftHandle = document.createElement("div");
+  leftHandle.className = "range-handle";
+  leftHandle.dataset.handle = "left";
+  leftHandle.setAttribute("aria-label", "左侧滑块");
+  const rightHandle = document.createElement("div");
+  rightHandle.className = "range-handle";
+  rightHandle.dataset.handle = "right";
+  rightHandle.setAttribute("aria-label", "右侧滑块");
+  selection.appendChild(leftHandle);
+  selection.appendChild(rightHandle);
+  track.appendChild(selection);
+  slider.appendChild(track);
+  wrap.appendChild(slider);
+
+  panel.appendChild(panelHeader);
+  panel.appendChild(wrap);
+
+  content.appendChild(settingsGrid);
+  content.appendChild(panel);
+
+  group.appendChild(header);
+  group.appendChild(content);
+
+  return {
+    group,
+    panel,
+    chart: svg,
+    legend: legendBlock,
+    axisSummary: axisSummaryEl,
+    seriesControls: seriesControlsEl,
+    rangeSlider: slider,
+    rangeTrack: track,
+    rangeSelection: selection,
+  };
+}
+
+function setBuiltinPanelError(panel, message, axisSummaryEl, seriesControlsEl) {
+  if (!panel) {
     return;
   }
-  dataSourceSelect.innerHTML = "<option value=\"\">请选择 CSV 文件</option>";
+  const legendBlock = panel.querySelector(".legend");
+  if (legendBlock) {
+    legendBlock.innerHTML = "";
+  }
+  const wrap = panel.querySelector(".chart-wrap");
+  if (!wrap) {
+    return;
+  }
+  wrap.innerHTML = "";
+  const error = document.createElement("div");
+  error.className = "chart-error";
+  error.textContent = message;
+  wrap.appendChild(error);
+  if (axisSummaryEl) {
+    axisSummaryEl.innerHTML = "<span>暂无数据</span>";
+  }
+  if (seriesControlsEl) {
+    seriesControlsEl.innerHTML = "<span>暂无数据</span>";
+  }
+}
+
+async function loadBuiltInCharts() {
+  if (!builtinCharts) {
+    return;
+  }
+  builtinCharts.innerHTML = "";
+  builtinInstances.length = 0;
+
+  const inlineSources = getInlineSources();
+  const inlineFiles = getInlineFiles();
+  const hasInline = inlineSources.length > 0 && Object.keys(inlineFiles).length > 0;
+  const preferInline = window.location.protocol === "file:" && hasInline;
+
+  let manifestLoaded = true;
   try {
     const response = await fetch(dataSourceManifest, { cache: "no-store" });
     if (!response.ok) {
@@ -431,57 +689,122 @@ async function loadDataSourceList() {
     }
     const payload = await response.json();
     const list = Array.isArray(payload.sources) ? payload.sources : [];
-    dataSources = list.filter((item) => item && item.file);
-    if (!dataSources.length) {
-      setDataSourceNote("未找到可用数据源，可继续上传 CSV。");
-      return;
-    }
-    dataSources.forEach((source) => {
-      const option = document.createElement("option");
-      option.value = source.file;
-      option.textContent = source.label || source.file;
-      dataSourceSelect.appendChild(option);
-    });
-    setDataSourceNote("可从 data 目录选择 CSV。");
+    dataSources = list.filter(
+      (item) => item && item.file && String(item.file).toLowerCase().endsWith(".csv")
+    );
   } catch (error) {
+    manifestLoaded = false;
     dataSources = [];
-    setDataSourceNote("未读取到数据源清单，仍可上传 CSV。");
-  }
-}
-
-async function loadDataSource(file) {
-  const source = dataSources.find((item) => item.file === file);
-  const label = source?.label || file;
-  const url = file.startsWith("http") ? file : `./data/${file}`;
-  try {
-    const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error("failed");
+    if (hasInline) {
+      dataSources = inlineSources.filter(
+        (item) => item && item.file && String(item.file).toLowerCase().endsWith(".csv")
+      );
+      manifestLoaded = true;
     }
-    const text = await response.text();
-    handleCSV(text);
-    if (dataSourceSelect) {
-      dataSourceSelect.value = file;
-    }
-    setDataSourceNote(`已加载：${label}`);
-  } catch (error) {
-    setDataSourceNote(`加载失败：${label}`);
   }
-}
 
-function handleCSV(text) {
-  const rows = parseCSV(text);
-  if (!rows.length || rows.length < 2) {
-    renderEmpty("CSV 数据不足，请确认包含标题行和至少一行数据。");
+  if (!dataSources.length) {
+    setDataSourceNote(
+      manifestLoaded ? "未找到内置 CSV，可继续上传 CSV。" : "未读取到内置 CSV，可继续上传 CSV。"
+    );
     return;
   }
 
-  const dataset = buildDataset(rows);
-  if (!dataset.series.length) {
-    renderEmpty("未检测到可绘制的数值列，请检查表格内容。");
-    return;
-  }
+  setDataSourceNote(
+    preferInline
+      ? "已自动加载内置 CSV 曲线图（本地内嵌数据）。"
+      : "已自动加载内置 CSV 曲线图，可继续上传 CSV。"
+  );
 
+  for (const source of dataSources) {
+    const title = getSourceLabel(source);
+    const groupParts = createBuiltinGroup(title);
+    builtinCharts.appendChild(groupParts.group);
+    const axisTitle = `曲线图——${title}`;
+    const instance = createChartInstance({
+      id: source.file,
+      title,
+      axisLabelPrefix: axisTitle,
+      styleScope: "builtin",
+      chart: groupParts.chart,
+      legend: groupParts.legend,
+      axisSummary: groupParts.axisSummary,
+      seriesControls: groupParts.seriesControls,
+      rangeSlider: groupParts.rangeSlider,
+      rangeTrack: groupParts.rangeTrack,
+      rangeSelection: groupParts.rangeSelection,
+    });
+    builtinInstances.push(instance);
+
+    if (!source.file) {
+      setBuiltinPanelError(
+        groupParts.panel,
+        "未提供 CSV 文件名称。",
+        groupParts.axisSummary,
+        groupParts.seriesControls
+      );
+      continue;
+    }
+
+    try {
+      let text = null;
+      if (inlineFiles[source.file] && preferInline) {
+        text = inlineFiles[source.file];
+      } else {
+        const url = source.file.startsWith("http") ? source.file : `./data/${source.file}`;
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("failed");
+        }
+        text = await response.text();
+      }
+      const rows = parseCSV(text);
+      if (!rows.length || rows.length < 2) {
+        setBuiltinPanelError(
+          groupParts.panel,
+          "CSV 数据不足，请确认包含标题行和至少一行数据。",
+          groupParts.axisSummary,
+          groupParts.seriesControls
+        );
+        continue;
+      }
+      const dataset = buildDataset(rows);
+      if (!dataset.series.length) {
+        setBuiltinPanelError(
+          groupParts.panel,
+          "未检测到可绘制的数值列，请检查表格内容。",
+          groupParts.axisSummary,
+          groupParts.seriesControls
+        );
+        continue;
+      }
+      withInstance(instance, () => {
+        applyDataset(dataset);
+      });
+    } catch (error) {
+      if (inlineFiles[source.file] && !preferInline) {
+        const rows = parseCSV(inlineFiles[source.file]);
+        if (rows.length >= 2) {
+          const dataset = buildDataset(rows);
+          if (dataset.series.length) {
+            withInstance(instance, () => {
+              applyDataset(dataset);
+            });
+            continue;
+          }
+        }
+      }
+      setBuiltinPanelError(
+        groupParts.panel,
+        `加载失败：${title}`,
+        groupParts.axisSummary,
+        groupParts.seriesControls
+      );
+    }
+  }
+}
+
+function applyDataset(dataset) {
   currentDataset = dataset;
   currentRange = {
     start: 0,
@@ -493,18 +816,27 @@ function handleCSV(text) {
   axisForcedSeries.clear();
   dataset.series.forEach((series) => {
     visibility.set(series.id, true);
-    const name = (series.name || "").trim();
-    const preset = seriesDefaultConfig.get(name);
-    seriesStyles.set(series.id, {
-      type: preset ? preset.type : "line",
-      showCurrent: false,
-      color: preset
-        ? colorOptions[preset.colorIndex]
-        : colorOptions[series.index % colorOptions.length],
-    });
+    getSeriesStyle(series);
   });
 
   renderAll();
+}
+
+function handleCSV(text) {
+  const rows = parseCSV(text);
+  if (!rows.length || rows.length < 2) {
+    renderEmpty("CSV 数据不足，请确认包含标题行和至少一行数据。");
+    return false;
+  }
+
+  const dataset = buildDataset(rows);
+  if (!dataset.series.length) {
+    renderEmpty("未检测到可绘制的数值列，请检查表格内容。");
+    return false;
+  }
+
+  applyDataset(dataset);
+  return true;
 }
 
 function parseCSV(text) {
@@ -769,13 +1101,21 @@ function renderEmpty(message) {
   hoverState = null;
   chartLayout = null;
   sliderPadding = { left: 0, right: 0 };
-  chart.innerHTML = "";
-  legend.innerHTML = "";
-  axisSummary.innerHTML = `<span>${message}</span>`;
+  if (chart) {
+    chart.innerHTML = "";
+  }
+  if (legend) {
+    legend.innerHTML = "";
+  }
+  if (axisSummary) {
+    axisSummary.innerHTML = `<span>${message}</span>`;
+  }
   if (seriesControls) {
     seriesControls.innerHTML = "";
   }
-  seriesCount.textContent = "0 条曲线";
+  if (seriesCount) {
+    seriesCount.textContent = "0 条曲线";
+  }
   if (rangeSlider) {
     rangeSlider.classList.add("is-hidden");
   }
@@ -871,7 +1211,7 @@ function renderChart(dataset, visibleSeries) {
     if (!series.hasData) {
       return false;
     }
-    return getSeriesStyle(series.id).type === "bar";
+    return getSeriesStyle(series).type === "bar";
   });
   const barCount = barSeries.length;
   const barIndexMap = new Map();
@@ -891,7 +1231,7 @@ function renderChart(dataset, visibleSeries) {
       return;
     }
 
-    const style = getSeriesStyle(series.id);
+    const style = getSeriesStyle(series);
     const color = getSeriesColor(series);
 
     if (style.type === "bar") {
@@ -1032,13 +1372,21 @@ function updateLegend() {
   if (!currentDataset) {
     return;
   }
+  if (!legend) {
+    return;
+  }
   legend.innerHTML = "";
+  const instance = activeInstance;
   currentDataset.series.forEach((series) => {
     const item = document.createElement("div");
     const isVisible = visibility.get(series.id) !== false;
     item.className = `legend__item${isVisible ? "" : " legend__item--hidden"}`;
     item.addEventListener("click", () => {
-      toggleSeries(series.id);
+      if (instance) {
+        withInstance(instance, () => toggleSeries(series.id));
+      } else {
+        toggleSeries(series.id);
+      }
     });
 
     const swatch = document.createElement("span");
@@ -1064,6 +1412,9 @@ function toggleSeries(seriesId) {
 }
 
 function updateSeriesCount() {
+  if (!seriesCount) {
+    return;
+  }
   if (!currentDataset) {
     seriesCount.textContent = "0 条曲线";
     return;
@@ -1080,24 +1431,33 @@ function updateSeriesCount() {
   }
 }
 
-function getSeriesStyle(seriesId) {
-  if (!seriesStyles.has(seriesId)) {
-    seriesStyles.set(seriesId, {
-      type: "line",
+function getSeriesStyle(series) {
+  const name = (series?.name || "").trim() || series?.id || "series";
+  const map = seriesStyles;
+  const key = series.id;
+  if (!map.has(key)) {
+    const preset = seriesDefaultConfig.get(name);
+    const index = series.index;
+    map.set(key, {
+      type: preset ? preset.type : "line",
       showCurrent: false,
-      color: colorOptions[0],
+      color: preset
+        ? colorOptions[preset.colorIndex]
+        : colorOptions[index % colorOptions.length],
     });
   }
-  return seriesStyles.get(seriesId);
+  return map.get(key);
 }
 
-function setSeriesStyle(seriesId, updates) {
-  const current = getSeriesStyle(seriesId);
-  seriesStyles.set(seriesId, { ...current, ...updates });
+function setSeriesStyle(series, updates) {
+  const map = seriesStyles;
+  const key = series.id;
+  const current = getSeriesStyle(series);
+  map.set(key, { ...current, ...updates });
 }
 
 function getSeriesColor(series) {
-  const style = getSeriesStyle(series.id);
+  const style = getSeriesStyle(series);
   if (style.color) {
     return style.color;
   }
@@ -1128,12 +1488,14 @@ function updateSeriesControls() {
     seriesControls.innerHTML = "<span>暂无数据</span>";
     return;
   }
+  const instance = activeInstance;
   currentDataset.series.forEach((series) => {
-    const style = getSeriesStyle(series.id);
+    const style = getSeriesStyle(series);
     const color = getSeriesColor(series);
     const row = document.createElement("div");
     const isVisible = visibility.get(series.id) !== false;
-    row.className = `series-row${isVisible ? "" : " series-row--hidden"}`;
+    const hideInControls = instance && instance.styleScope === "builtin" ? true : false;
+    row.className = `series-row${isVisible || hideInControls ? "" : " series-row--hidden"}`;
 
     const label = document.createElement("div");
     label.className = "series-label";
@@ -1162,7 +1524,14 @@ function updateSeriesControls() {
     });
     select.value = style.type;
     select.addEventListener("change", () => {
-      setSeriesStyle(series.id, { type: select.value });
+      if (instance) {
+        withInstance(instance, () => {
+          setSeriesStyle(series, { type: select.value });
+          refreshChart();
+        });
+        return;
+      }
+      setSeriesStyle(series, { type: select.value });
       refreshChart();
     });
 
@@ -1192,7 +1561,17 @@ function updateSeriesControls() {
     colorInput.placeholder = "#rrggbb";
 
     const applyColor = (value) => {
-      setSeriesStyle(series.id, { color: value });
+      if (instance) {
+        withInstance(instance, () => {
+          setSeriesStyle(series, { color: value });
+          swatch.style.backgroundColor = value;
+          triggerSwatch.style.backgroundColor = value;
+          updateLegend();
+          refreshChart();
+        });
+        return;
+      }
+      setSeriesStyle(series, { color: value });
       swatch.style.backgroundColor = value;
       triggerSwatch.style.backgroundColor = value;
       updateLegend();
@@ -1267,6 +1646,17 @@ function updateSeriesControls() {
     axisCheckbox.type = "checkbox";
     axisCheckbox.checked = axisForcedSeries.has(series.id);
     axisCheckbox.addEventListener("change", () => {
+      if (instance) {
+        withInstance(instance, () => {
+          if (axisCheckbox.checked) {
+            axisForcedSeries.add(series.id);
+          } else {
+            axisForcedSeries.delete(series.id);
+          }
+          refreshChart();
+        });
+        return;
+      }
       if (axisCheckbox.checked) {
         axisForcedSeries.add(series.id);
       } else {
@@ -1285,7 +1675,14 @@ function updateSeriesControls() {
     checkbox.type = "checkbox";
     checkbox.checked = style.showCurrent;
     checkbox.addEventListener("change", () => {
-      setSeriesStyle(series.id, { showCurrent: checkbox.checked });
+      if (instance) {
+        withInstance(instance, () => {
+          setSeriesStyle(series, { showCurrent: checkbox.checked });
+          refreshChart();
+        });
+        return;
+      }
+      setSeriesStyle(series, { showCurrent: checkbox.checked });
       refreshChart();
     });
     const toggleText = document.createElement("span");
@@ -1841,7 +2238,11 @@ function handleRangePointerDown(event) {
     type: dragType,
     startX: event.clientX,
     startRange: { ...currentRange },
+    instance: activeInstance,
   };
+  if (activeInstance) {
+    activeInstance.dragState = dragState;
+  }
 
   event.currentTarget.setPointerCapture(event.pointerId);
   window.addEventListener("pointermove", handleRangePointerMove);
@@ -1851,46 +2252,58 @@ function handleRangePointerDown(event) {
 }
 
 function handleRangePointerMove(event) {
-  if (!dragState || !currentDataset || !currentRange || !rangeTrack) {
+  if (!dragState || !dragState.instance) {
     return;
   }
-  const rect = rangeTrack.getBoundingClientRect();
-  const trackLeft = rect.left;
-  const trackWidth = rect.width;
-  if (trackWidth <= 0) {
-    return;
-  }
-  const total = Math.max(0, currentDataset.xValues.length - 1);
-  const minSpan = total === 0 ? 0 : 1;
-  const ratio = clamp((event.clientX - trackLeft) / trackWidth, 0, 1);
-  const indexAtPointer = clamp(Math.round(ratio * total), 0, total);
+  withInstance(dragState.instance, () => {
+    if (!currentDataset || !currentRange || !rangeTrack) {
+      return;
+    }
+    const rect = rangeTrack.getBoundingClientRect();
+    const trackLeft = rect.left;
+    const trackWidth = rect.width;
+    if (trackWidth <= 0) {
+      return;
+    }
+    const total = Math.max(0, currentDataset.xValues.length - 1);
+    const minSpan = total === 0 ? 0 : 1;
+    const ratio = clamp((event.clientX - trackLeft) / trackWidth, 0, 1);
+    const indexAtPointer = clamp(Math.round(ratio * total), 0, total);
 
-  if (dragState.type === "left") {
-    const newStart = clamp(indexAtPointer, 0, currentRange.end - minSpan);
-    setRange(newStart, currentRange.end);
-    return;
-  }
+    if (dragState.type === "left") {
+      const newStart = clamp(indexAtPointer, 0, currentRange.end - minSpan);
+      setRange(newStart, currentRange.end);
+      return;
+    }
 
-  if (dragState.type === "right") {
-    const newEnd = clamp(indexAtPointer, currentRange.start + minSpan, total);
-    setRange(currentRange.start, newEnd);
-    return;
-  }
+    if (dragState.type === "right") {
+      const newEnd = clamp(indexAtPointer, currentRange.start + minSpan, total);
+      setRange(currentRange.start, newEnd);
+      return;
+    }
 
-  const span = dragState.startRange.end - dragState.startRange.start;
-  const deltaRatio = (event.clientX - dragState.startX) / trackWidth;
-  const deltaIndex = Math.round(deltaRatio * total);
-  const maxStart = Math.max(0, total - span);
-  const newStart = clamp(dragState.startRange.start + deltaIndex, 0, maxStart);
-  const newEnd = clamp(newStart + span, 0, total);
-  setRange(newStart, newEnd);
+    const span = dragState.startRange.end - dragState.startRange.start;
+    const deltaRatio = (event.clientX - dragState.startX) / trackWidth;
+    const deltaIndex = Math.round(deltaRatio * total);
+    const maxStart = Math.max(0, total - span);
+    const newStart = clamp(dragState.startRange.start + deltaIndex, 0, maxStart);
+    const newEnd = clamp(newStart + span, 0, total);
+    setRange(newStart, newEnd);
+  });
 }
 
 function handleRangePointerUp() {
   if (!dragState) {
     return;
   }
-  dragState = null;
+  const targetInstance = dragState.instance;
+  if (targetInstance) {
+    withInstance(targetInstance, () => {
+      dragState = null;
+    });
+  } else {
+    dragState = null;
+  }
   window.removeEventListener("pointermove", handleRangePointerMove);
   window.removeEventListener("pointerup", handleRangePointerUp);
   window.removeEventListener("pointercancel", handleRangePointerUp);
@@ -1909,7 +2322,11 @@ function setRange(start, end) {
 }
 
 function renderSummary(groups) {
+  if (!axisSummary) {
+    return;
+  }
   axisSummary.innerHTML = "";
+  const instance = activeInstance;
   if (!groups.length) {
     axisSummary.innerHTML = "<span>暂无数据</span>";
     return;
@@ -1923,7 +2340,11 @@ function renderSummary(groups) {
     info.className = "axis-info";
     const title = document.createElement("div");
     title.className = "axis-title";
-    title.textContent = `Y 轴 ${index + 1}`;
+    if (activeInstance && activeInstance.axisLabelPrefix) {
+      title.textContent = `${activeInstance.axisLabelPrefix}——Y轴${index + 1}`;
+    } else {
+      title.textContent = `Y 轴 ${index + 1}`;
+    }
     const names = document.createElement("div");
     names.className = "axis-series";
     names.textContent = group.series.map((series) => series.name).join(" / ");
@@ -1955,6 +2376,13 @@ function renderSummary(groups) {
       if (!Number.isFinite(minValue) || !Number.isFinite(maxValue) || minValue >= maxValue) {
         return;
       }
+      if (instance) {
+        withInstance(instance, () => {
+          axisOverrides.set(group.key, { min: minValue, max: maxValue });
+          refreshChart();
+        });
+        return;
+      }
       axisOverrides.set(group.key, { min: minValue, max: maxValue });
       refreshChart();
     };
@@ -1970,18 +2398,48 @@ function renderSummary(groups) {
   });
 }
 
-chart.addEventListener("pointermove", handleHoverMove);
-chart.addEventListener("pointerleave", hideHoverLine);
-if (rangeSelection) {
-  rangeSelection.addEventListener("pointerdown", handleRangePointerDown);
-}
-window.addEventListener("resize", () => {
-  if (currentDataset && currentRange) {
-    refreshChart();
-  } else {
-    updateSliderPadding();
-  }
+uploadInstance = createChartInstance({
+  id: "upload",
+  title: "曲线图",
+  styleScope: "upload",
+  chart,
+  legend,
+  axisSummary,
+  seriesControls,
+  seriesCount,
+  rangeSlider,
+  rangeTrack,
+  rangeSelection,
 });
 
-loadDataSourceList();
-renderEmpty("请上传 CSV 或加载示例数据。");
+window.addEventListener("resize", () => {
+  const instances = [...builtinInstances, uploadInstance].filter(Boolean);
+  instances.forEach((instance) => {
+    withInstance(instance, () => {
+      if (currentDataset && currentRange) {
+        refreshChart();
+      } else {
+        updateSliderPadding();
+      }
+    });
+  });
+});
+
+withInstance(uploadInstance, () => {
+  renderEmpty("正在读取内置数据…");
+});
+if (fileInput) {
+  fileInput.disabled = true;
+}
+loadBuiltInCharts()
+  .catch(() => {
+    setDataSourceNote("未读取到内置 CSV，可继续上传 CSV。");
+  })
+  .finally(() => {
+    withInstance(uploadInstance, () => {
+      renderEmpty("请上传 CSV 以生成曲线图。");
+    });
+    if (fileInput) {
+      fileInput.disabled = false;
+    }
+  });

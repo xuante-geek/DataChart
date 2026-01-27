@@ -1,10 +1,6 @@
 {
   "sources": [
     {
-      "label": "股权风险溢价滚动周期",
-      "file": "ERP_Rolling Calculation.csv"
-    },
-{
       "label": "股权风险溢价固定周期",
       "file": "ERP_Interval.csv"
     },

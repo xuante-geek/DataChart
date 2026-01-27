@@ -19,28 +19,27 @@
       </header>
 
       <main class="workspace">
-        <section class="panel">
-          <div class="panel__header">
-            <div>
-              <h2>图表设置</h2>
+        <div class="chart-groups">
+          <div class="builtin-charts" id="builtinCharts"></div>
+
+          <section class="chart-group" id="uploadGroup">
+            <div class="group-header">
+              <h2>曲线图</h2>
+              <p>上传 CSV 生成一组可交互曲线图。</p>
             </div>
-          </div>
-          <div class="panel__body">
+
             <div class="data-source">
               <div class="data-source__info">
                 <h3>数据源</h3>
-                <p id="dataSourceNote">从已发布的 data 目录选择 CSV。</p>
+                <p id="dataSourceNote">内置数据将自动加载，可上传 CSV 生成新曲线图。</p>
               </div>
               <div class="data-source__control">
-                <label for="dataSourceSelect">选择文件</label>
+                <label for="fileInput">上传 CSV</label>
                 <div class="data-source__actions">
                   <label class="upload upload--primary">
                     <input id="fileInput" type="file" accept=".csv" />
                     <span>上传 CSV</span>
                   </label>
-                  <select id="dataSourceSelect">
-                    <option value="">请选择 CSV 文件</option>
-                  </select>
                 </div>
                 <div class="data-source__status">
                   <span class="status-label">曲线数</span>
@@ -48,53 +47,62 @@
                 </div>
               </div>
             </div>
-            <div class="settings-grid">
-              <div class="settings-block">
-                <div class="settings-head">
-                  <h3>Y 轴范围</h3>
-                  <p>支持按数据分组后为每个 Y 轴设置最小/最大值。</p>
-                </div>
-                <div class="axis-summary" id="axisSummary">
-                  <span>暂无数据</span>
-                </div>
-              </div>
-              <div class="settings-block">
-                <div class="settings-head">
-                  <h3>曲线样式</h3>
-                  <p>为每条曲线指定类型，并设置显示当前值。</p>
-                </div>
-                <div class="series-controls" id="seriesControls"></div>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        <section class="panel chart-panel">
-          <div class="panel__header">
-            <div>
-              <h2>曲线图</h2>
-              <p>支持多列数据自动绘制，自动生成多个 Y 轴。</p>
-            </div>
-            <div class="chart-actions">
-              <button class="button" id="downloadChart" type="button">下载曲线图</button>
-              <div class="legend" id="legend"></div>
-            </div>
-          </div>
-          <div class="chart-wrap">
-            <svg id="chart" viewBox="0 0 1100 540" role="img" aria-label="数据曲线图"></svg>
-            <div class="range-slider is-hidden" id="rangeSlider">
-              <div class="range-track" id="rangeTrack">
-                <div class="range-selection" id="rangeSelection">
-                  <div class="range-handle" data-handle="left" aria-label="左侧滑块"></div>
-                  <div class="range-handle" data-handle="right" aria-label="右侧滑块"></div>
-                </div>
+            <div class="group-content">
+              <div class="settings-grid">
+                <section class="panel settings-panel">
+                  <div class="settings-head">
+                    <h3>Y 轴范围</h3>
+                    <p>支持按数据分组后为每个 Y 轴设置最小/最大值。</p>
+                  </div>
+                  <div class="axis-summary" id="axisSummary">
+                    <span>暂无数据</span>
+                  </div>
+                </section>
+                <section class="panel settings-panel">
+                  <div class="settings-head">
+                    <h3>曲线样式</h3>
+                    <p>为每条曲线指定类型，并设置显示当前值。</p>
+                  </div>
+                  <div class="series-controls" id="seriesControls"></div>
+                </section>
               </div>
+
+              <section class="panel chart-panel" id="uploadChartPanel">
+                <div class="panel__header">
+                  <div>
+                    <h2>曲线图</h2>
+                    <p>支持多列数据自动绘制，自动生成多个 Y 轴。</p>
+                  </div>
+                  <div class="chart-actions">
+                    <button class="button" id="downloadChart" type="button">下载曲线图</button>
+                    <div class="legend" id="legend"></div>
+                  </div>
+                </div>
+                <div class="chart-wrap">
+                  <svg
+                    id="chart"
+                    viewBox="0 0 1100 540"
+                    role="img"
+                    aria-label="数据曲线图"
+                  ></svg>
+                  <div class="range-slider is-hidden" id="rangeSlider">
+                    <div class="range-track" id="rangeTrack">
+                      <div class="range-selection" id="rangeSelection">
+                        <div class="range-handle" data-handle="left" aria-label="左侧滑块"></div>
+                        <div class="range-handle" data-handle="right" aria-label="右侧滑块"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </main>
     </div>
 
+    <script src="data/inline-data.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
