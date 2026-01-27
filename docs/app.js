@@ -65,11 +65,11 @@ const seriesDefaultConfig = new Map([
   ["股权风险溢价", { colorIndex: 7, type: "line" }],
   ["十年国债收益率", { colorIndex: 6, type: "line" }],
   ["PE-TTM-S", { colorIndex: 3, type: "line" }],
-  ["+2σ", { colorIndex: 9, type: "line" }],
-  ["+1σ", { colorIndex: 9, type: "line" }],
-  ["中位数", { colorIndex: 9, type: "line" }],
-  ["-1σ", { colorIndex: 9, type: "line" }],
-  ["-2σ", { colorIndex: 9, type: "line" }],
+  ["+2σ", { colorIndex: 10, type: "line" }],
+  ["+1σ", { colorIndex: 10, type: "line" }],
+  ["中位数", { colorIndex: 10, type: "line" }],
+  ["-1σ", { colorIndex: 10, type: "line" }],
+  ["-2σ", { colorIndex: 10, type: "line" }],
 ]);
 
 if (fileInput) {
