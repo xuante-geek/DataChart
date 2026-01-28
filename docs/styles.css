@@ -868,3 +868,8 @@ svg text {
 .chart-panel--static .chart-actions .legend {
   margin-top: 12px;
 }
+
+#uploadChartPanel .legend {
+  flex: 1 1 100%;
+  justify-content: flex-start;
+}

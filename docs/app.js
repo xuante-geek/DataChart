@@ -1177,7 +1177,8 @@ function renderChart(dataset, visibleSeries) {
   const paddingTop = 40;
   const paddingBottom = 60;
   const axisGap = 56;
-  const paddingRight = 90 + Math.max(0, axisCount - 1) * axisGap;
+  const paddingRight =
+    axisCount <= 1 ? paddingLeft : paddingLeft + Math.max(0, axisCount - 2) * axisGap;
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
 
@@ -1494,8 +1495,7 @@ function updateSeriesControls() {
     const color = getSeriesColor(series);
     const row = document.createElement("div");
     const isVisible = visibility.get(series.id) !== false;
-    const hideInControls = instance && instance.styleScope === "builtin" ? true : false;
-    row.className = `series-row${isVisible || hideInControls ? "" : " series-row--hidden"}`;
+    row.className = `series-row${isVisible ? "" : " series-row--hidden"}`;
 
     const label = document.createElement("div");
     label.className = "series-label";
