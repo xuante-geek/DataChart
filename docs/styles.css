@@ -53,34 +53,10 @@ body {
   padding: 6px 0 8px;
 }
 
-.site-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.site-logo {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  object-fit: cover;
-  object-position: center;
-  background: #fff;
-  padding: 0;
-}
-
-.site-logo--solo {
-  width: 104px;
-  height: 104px;
-  border-radius: 16px;
-  object-fit: cover;
-}
-
-.site-title {
-  font-size: 1.6rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink);
+.site-note {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--muted);
 }
 
 .hero {
