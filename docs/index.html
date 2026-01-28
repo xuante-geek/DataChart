@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DataChart | 数据曲线可视化</title>
+    <title>anychart | 数据曲线可视化</title>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-S1RE51J934"></script>
     <script>
@@ -23,8 +23,11 @@
   </head>
   <body>
     <div class="page">
-            <header class="site-header">
-        <h1 class="site-title">DataChart</h1>
+      <header class="site-header">
+        <div class="site-brand">
+          <img src="data/anychart logo.png" alt="anychart 标识" class="site-logo site-logo--solo" />
+          <h1 class="site-title">ANYCHART</h1>
+        </div>
       </header>
 
       <main class="workspace">
@@ -40,10 +43,9 @@
             <div class="data-source">
               <div class="data-source__info">
                 <h3>数据源</h3>
-                <p id="dataSourceNote">内置数据将自动加载，可上传 CSV 生成新曲线图。</p>
+                <p id="dataSourceNote"></p>
               </div>
               <div class="data-source__control">
-                <label for="fileInput">上传 CSV</label>
                 <div class="data-source__actions">
                   <label class="upload upload--primary">
                     <input id="fileInput" type="file" accept=".csv" />
@@ -57,7 +59,7 @@
               </div>
             </div>
 
-            <div class="group-content">
+            <div class="group-content is-hidden" id="uploadGroupContent">
               <div class="settings-grid">
                 <section class="panel settings-panel">
                   <div class="settings-head">

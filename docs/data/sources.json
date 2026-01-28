@@ -1,11 +1,11 @@
 {
   "sources": [
     {
-      "label": "股权风险溢价固定周期",
+      "label": "股权风险溢价",
       "file": "ERP_Interval.csv"
     },
     {
-      "label": "市场温度",
+      "label": "市场情绪与估值",
       "file": "Market_Thermometer.csv"
     }
   ]

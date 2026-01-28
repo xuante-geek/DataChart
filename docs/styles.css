@@ -49,8 +49,31 @@ body {
 .site-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 6px 0 8px;
+}
+
+.site-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: cover;
+  object-position: center;
+  background: #fff;
+  padding: 0;
+}
+
+.site-logo--solo {
+  width: 104px;
+  height: 104px;
+  border-radius: 16px;
+  object-fit: cover;
 }
 
 .site-title {
@@ -218,6 +241,10 @@ body {
   gap: 24px;
 }
 
+.group-content.is-hidden {
+  display: none;
+}
+
 .chart-group .panel {
   box-shadow: none;
 }
@@ -324,6 +351,10 @@ body {
 .data-source__info p {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.data-source__info p:empty {
+  display: none;
 }
 
 .data-source__control {

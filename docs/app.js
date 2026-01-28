@@ -10,6 +10,9 @@ let rangeTrack = document.getElementById("rangeTrack");
 let rangeSelection = document.getElementById("rangeSelection");
 const downloadChartBtn = document.getElementById("downloadChart");
 const builtinCharts = document.getElementById("builtinCharts");
+const uploadGroupContent = document.getElementById("uploadGroupContent");
+
+const WATERMARK_TEXT = "anychart.online";
 
 let currentDataset = null;
 let currentRange = null;
@@ -84,6 +87,7 @@ if (fileInput) {
       const text = String(loadEvent.target.result || "");
       if (uploadInstance) {
         withInstance(uploadInstance, () => handleCSV(text));
+        setUploadGroupVisible(true);
       } else {
         handleCSV(text);
       }
@@ -243,8 +247,10 @@ function buildExportSvg() {
   svg.insertBefore(style, svg.firstChild);
 
   const title = document.createElementNS(ns, "text");
-  const titleText = document.querySelector("#uploadChartPanel .panel__header h2");
-  title.textContent = titleText ? titleText.textContent.trim() : "曲线图";
+  const titleText = activeInstance?.exportTitle
+    ? activeInstance.exportTitle
+    : document.querySelector("#uploadChartPanel .panel__header h2")?.textContent?.trim() || "曲线图";
+  title.textContent = titleText;
   title.setAttribute("x", String(width / 2));
   title.setAttribute("y", "24");
   title.setAttribute("text-anchor", "middle");
@@ -253,8 +259,23 @@ function buildExportSvg() {
   title.setAttribute("fill", "#111216");
   svg.appendChild(title);
 
+  const watermark = document.createElementNS(ns, "text");
+  const plotRight = chartLayout ? chartLayout.viewWidth - chartLayout.paddingRight : width - 16;
+  const plotBottom = chartLayout
+    ? chartLayout.viewHeight - chartLayout.paddingBottom
+    : height - 12;
+  watermark.textContent = WATERMARK_TEXT;
+  watermark.setAttribute("x", String(plotRight - 12));
+  watermark.setAttribute("y", String(plotBottom - 10));
+  watermark.setAttribute("text-anchor", "end");
+  watermark.setAttribute("font-size", "12");
+  watermark.setAttribute("font-weight", "600");
+  watermark.setAttribute("fill", "rgba(17, 18, 22, 0.35)");
+  svg.appendChild(watermark);
+
   return { svg, width, height };
 }
+
 
 function downloadSvgFallback(svg) {
   try {
@@ -401,6 +422,13 @@ function setDataSourceNote(message) {
   dataSourceNote.textContent = message;
 }
 
+function setUploadGroupVisible(visible) {
+  if (!uploadGroupContent) {
+    return;
+  }
+  uploadGroupContent.classList.toggle("is-hidden", !visible);
+}
+
 function bindInstance(instance) {
   activeInstance = instance;
   if (!dragState || dragState.instance === instance) {
@@ -448,6 +476,7 @@ function createChartInstance(options) {
   const instance = {
     id: options.id || "",
     title: options.title || "",
+    exportTitle: options.exportTitle || options.title || "",
     axisLabelPrefix: options.axisLabelPrefix || "",
     styleScope: options.styleScope || "upload",
     chart: options.chart,
@@ -586,8 +615,13 @@ function createBuiltinGroup(title) {
 
   const actions = document.createElement("div");
   actions.className = "chart-actions";
+  const downloadBtn = document.createElement("button");
+  downloadBtn.className = "button";
+  downloadBtn.type = "button";
+  downloadBtn.textContent = "下载曲线图";
   const legendBlock = document.createElement("div");
   legendBlock.className = "legend";
+  actions.appendChild(downloadBtn);
   actions.appendChild(legendBlock);
 
   panelHeader.appendChild(panelText);
@@ -636,6 +670,7 @@ function createBuiltinGroup(title) {
     panel,
     chart: svg,
     legend: legendBlock,
+    downloadBtn,
     axisSummary: axisSummaryEl,
     seriesControls: seriesControlsEl,
     rangeSlider: slider,
@@ -724,6 +759,7 @@ async function loadBuiltInCharts() {
     const instance = createChartInstance({
       id: source.file,
       title,
+      exportTitle: `曲线图——${title}`,
       axisLabelPrefix: axisTitle,
       styleScope: "builtin",
       chart: groupParts.chart,
@@ -735,6 +771,11 @@ async function loadBuiltInCharts() {
       rangeSelection: groupParts.rangeSelection,
     });
     builtinInstances.push(instance);
+    if (groupParts.downloadBtn) {
+      groupParts.downloadBtn.addEventListener("click", () => {
+        withInstance(instance, downloadChartImage);
+      });
+    }
 
     if (!source.file) {
       setBuiltinPanelError(
@@ -1363,8 +1404,11 @@ function renderChart(dataset, visibleSeries) {
 
   chartLayout = {
     viewWidth: width,
+    viewHeight: height,
     paddingLeft,
     paddingRight,
+    paddingTop,
+    paddingBottom,
   };
   updateSliderPadding();
 }
@@ -2401,6 +2445,7 @@ function renderSummary(groups) {
 uploadInstance = createChartInstance({
   id: "upload",
   title: "曲线图",
+  exportTitle: "曲线图",
   styleScope: "upload",
   chart,
   legend,
@@ -2428,6 +2473,7 @@ window.addEventListener("resize", () => {
 withInstance(uploadInstance, () => {
   renderEmpty("正在读取内置数据…");
 });
+setUploadGroupVisible(false);
 if (fileInput) {
   fileInput.disabled = true;
 }
