@@ -563,42 +563,6 @@ function createBuiltinGroup(title) {
   const content = document.createElement("div");
   content.className = "group-content";
 
-  const settingsGrid = document.createElement("div");
-  settingsGrid.className = "settings-grid";
-
-  const axisPanel = document.createElement("section");
-  axisPanel.className = "panel settings-panel";
-  const axisHead = document.createElement("div");
-  axisHead.className = "settings-head";
-  const axisTitle = document.createElement("h3");
-  axisTitle.textContent = "Y 轴范围";
-  const axisDesc = document.createElement("p");
-  axisDesc.textContent = "支持按数据分组后为每个 Y 轴设置最小/最大值。";
-  axisHead.appendChild(axisTitle);
-  axisHead.appendChild(axisDesc);
-  const axisSummaryEl = document.createElement("div");
-  axisSummaryEl.className = "axis-summary";
-  axisPanel.appendChild(axisHead);
-  axisPanel.appendChild(axisSummaryEl);
-
-  const stylePanel = document.createElement("section");
-  stylePanel.className = "panel settings-panel";
-  const styleHead = document.createElement("div");
-  styleHead.className = "settings-head";
-  const styleTitle = document.createElement("h3");
-  styleTitle.textContent = "曲线样式";
-  const styleDesc = document.createElement("p");
-  styleDesc.textContent = "为每条曲线指定类型，并设置显示当前值。";
-  styleHead.appendChild(styleTitle);
-  styleHead.appendChild(styleDesc);
-  const seriesControlsEl = document.createElement("div");
-  seriesControlsEl.className = "series-controls";
-  stylePanel.appendChild(styleHead);
-  stylePanel.appendChild(seriesControlsEl);
-
-  settingsGrid.appendChild(axisPanel);
-  settingsGrid.appendChild(stylePanel);
-
   const panel = document.createElement("section");
   panel.className = "panel chart-panel chart-panel--static";
 
@@ -659,7 +623,6 @@ function createBuiltinGroup(title) {
   panel.appendChild(panelHeader);
   panel.appendChild(wrap);
 
-  content.appendChild(settingsGrid);
   content.appendChild(panel);
 
   group.appendChild(header);
@@ -671,8 +634,8 @@ function createBuiltinGroup(title) {
     chart: svg,
     legend: legendBlock,
     downloadBtn,
-    axisSummary: axisSummaryEl,
-    seriesControls: seriesControlsEl,
+    axisSummary: null,
+    seriesControls: null,
     rangeSlider: slider,
     rangeTrack: track,
     rangeSelection: selection,
@@ -1761,6 +1724,9 @@ function updateSlider() {
     return;
   }
   rangeSlider.classList.remove("is-hidden");
+  if (!sliderPadding || !Number.isFinite(sliderPadding.left) || !Number.isFinite(sliderPadding.right)) {
+    updateSliderPadding();
+  }
   const trackWidth = rangeTrack.clientWidth;
   if (!trackWidth) {
     return;
@@ -2112,6 +2078,7 @@ function updateSliderPadding() {
   rangeTrack.style.left = `${leftPadding}px`;
   rangeTrack.style.right = `${rightPadding}px`;
   sliderPadding = { left: leftPadding, right: rightPadding };
+  updateSlider();
 }
 
 function getHoverPoint(svgX) {
