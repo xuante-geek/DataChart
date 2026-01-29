@@ -12,7 +12,7 @@ const downloadChartBtn = document.getElementById("downloadChart");
 const builtinCharts = document.getElementById("builtinCharts");
 const uploadGroupContent = document.getElementById("uploadGroupContent");
 
-const WATERMARK_TEXT = "anychart.online";
+const WATERMARK_TEXT = "anexus.cn";
 
 let currentDataset = null;
 let currentRange = null;

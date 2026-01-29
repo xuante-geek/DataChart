@@ -40,23 +40,35 @@ body {
 .page {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 48px 32px 72px;
+  padding: 32px 32px 64px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 20px;
 }
 
 .site-header {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 6px 0 8px;
+  padding: 0;
 }
 
-.site-note {
-  font-size: 0.95rem;
-  line-height: 1.6;
-  color: var(--muted);
+.site-title {
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--ink);
+}
+
+.banner-qr {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-left: auto;
+  background: #fff;
+  padding: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .hero {
