@@ -86,8 +86,13 @@ if (fileInput) {
     reader.onload = (loadEvent) => {
       const text = String(loadEvent.target.result || "");
       if (uploadInstance) {
-        withInstance(uploadInstance, () => handleCSV(text));
         setUploadGroupVisible(true);
+        requestAnimationFrame(() => {
+          withInstance(uploadInstance, () => {
+            handleCSV(text);
+            updateSliderPadding();
+          });
+        });
       } else {
         handleCSV(text);
       }
