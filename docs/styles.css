@@ -786,7 +786,7 @@ svg text {
   top: 50%;
   left: 0;
   right: 0;
-  height: 10px;
+  height: 6px;
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.08);
   transform: translateY(-50%);
@@ -811,7 +811,7 @@ svg text {
   left: 0;
   right: 0;
   top: 50%;
-  height: 12px;
+  height: 8px;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(15, 111, 255, 0.7), rgba(110, 231, 255, 0.9));
   transform: translateY(-50%);
@@ -824,8 +824,8 @@ svg text {
 .range-handle {
   position: absolute;
   top: 50%;
-  width: 32px;
-  height: 32px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #fff;
   border: 2px solid var(--accent);
