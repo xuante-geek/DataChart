@@ -773,7 +773,7 @@ svg text {
 
 .range-slider {
   position: relative;
-  height: 32px;
+  height: 52px;
   margin-top: 18px;
 }
 
@@ -786,7 +786,7 @@ svg text {
   top: 50%;
   left: 0;
   right: 0;
-  height: 6px;
+  height: 10px;
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.08);
   transform: translateY(-50%);
@@ -796,13 +796,25 @@ svg text {
 .range-selection {
   position: absolute;
   top: 50%;
-  height: 8px;
+  height: 30px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(15, 111, 255, 0.7), rgba(110, 231, 255, 0.9));
+  background: transparent;
   transform: translateY(-50%);
   cursor: grab;
   touch-action: none;
   z-index: 1;
+}
+
+.range-selection::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(15, 111, 255, 0.7), rgba(110, 231, 255, 0.9));
+  transform: translateY(-50%);
 }
 
 .range-selection:active {
@@ -812,8 +824,8 @@ svg text {
 .range-handle {
   position: absolute;
   top: 50%;
-  width: 18px;
-  height: 18px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: #fff;
   border: 2px solid var(--accent);
