@@ -796,7 +796,7 @@ svg text {
 .range-selection {
   position: absolute;
   top: 50%;
-  height: 30px;
+  height: 48px;
   border-radius: 999px;
   background: transparent;
   transform: translateY(-50%);
