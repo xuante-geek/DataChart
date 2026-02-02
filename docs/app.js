@@ -1084,10 +1084,21 @@ function applyAxisOverrides(groups) {
   groups.forEach((group) => {
     const key = getGroupKey(group);
     group.key = key;
+    const shouldClampToPercent =
+      Number.isFinite(group.min) && Number.isFinite(group.max) && group.min >= 0 && group.max <= 100;
+    const defaultBounds = shouldClampToPercent
+      ? { min: 0, max: 100 }
+      : getDefaultAxisBounds(group.min, group.max);
+
     if (!axisOverrides.has(key)) {
-      axisOverrides.set(key, getDefaultAxisBounds(group.min, group.max));
+      axisOverrides.set(key, defaultBounds);
     }
-    const override = axisOverrides.get(key);
+
+    let override = axisOverrides.get(key);
+    if (shouldClampToPercent) {
+      override = { min: 0, max: 100 };
+      axisOverrides.set(key, override);
+    }
     if (
       override &&
       Number.isFinite(override.min) &&

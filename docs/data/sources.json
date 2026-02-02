@@ -1,12 +1,15 @@
 {
   "sources": [
-    {
-      "label": "股权风险溢价",
-      "file": "ERP_Interval.csv"
-    },
+    
     {
       "label": "市场情绪与估值",
       "file": "Market_Thermometer.csv"
+    },
+    {
+      "label": "股权风险溢价",
+      "file": "ERP_Interval.csv"
     }
+    
+    
   ]
 }
