@@ -1,11 +1,13 @@
 window.__DATA_SOURCES__ = [
   {
-    "label": "股权风险溢价固定周期",
-    "file": "ERP_Interval.csv"
+    "label": "市场情绪与估值",
+    "file": "Market_Thermometer.csv",
+    "note": "市场温度表格使用注释说明"
   },
   {
-    "label": "市场温度",
-    "file": "Market_Thermometer.csv"
+    "label": "股权风险溢价",
+    "file": "ERP_Interval.csv",
+    "note": "股权风险溢价表格使用注释说明"
   }
 ];
 window.__DATA_FILES__ = {

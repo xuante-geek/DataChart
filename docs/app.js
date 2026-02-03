@@ -552,18 +552,26 @@ function getSourceLabel(source) {
   return withoutExt || file;
 }
 
-function createBuiltinGroup(title) {
+function getSourceNote(source) {
+  if (!source) {
+    return "表格使用注释说明";
+  }
+  const note = String(source.note || "").trim();
+  if (note) {
+    return note;
+  }
+  return "表格使用注释说明";
+}
+
+function createBuiltinGroup(title, note) {
   const group = document.createElement("section");
   group.className = "chart-group";
 
   const header = document.createElement("div");
   header.className = "group-header";
   const heading = document.createElement("h2");
-  heading.textContent = `曲线图——${title}`;
-  const desc = document.createElement("p");
-  desc.textContent = "内置数据自动生成。";
+  heading.textContent = title;
   header.appendChild(heading);
-  header.appendChild(desc);
 
   const content = document.createElement("div");
   content.className = "group-content";
@@ -576,9 +584,9 @@ function createBuiltinGroup(title) {
 
   const panelText = document.createElement("div");
   const panelTitle = document.createElement("h2");
-  panelTitle.textContent = `曲线图——${title}`;
+  panelTitle.textContent = title;
   const panelDesc = document.createElement("p");
-  panelDesc.textContent = "支持多列数据自动绘制，自动生成多个 Y 轴。";
+  panelDesc.textContent = note || "表格使用注释说明";
   panelText.appendChild(panelTitle);
   panelText.appendChild(panelDesc);
 
@@ -721,7 +729,8 @@ async function loadBuiltInCharts() {
 
   for (const source of dataSources) {
     const title = getSourceLabel(source);
-    const groupParts = createBuiltinGroup(title);
+    const note = getSourceNote(source);
+    const groupParts = createBuiltinGroup(title, note);
     builtinCharts.appendChild(groupParts.group);
     const axisTitle = `曲线图——${title}`;
     const instance = createChartInstance({

@@ -2,12 +2,14 @@
   "sources": [
     
     {
-      "label": "市场情绪与估值",
-      "file": "Market_Thermometer.csv"
+      "label": "市场温度与估值",
+      "file": "Market_Thermometer.csv",
+      "note": "股权风险溢价与市场温度极值同步，中证全A出现极值与边际反转；股权风险溢价与市场温度极值未同步，中证全A横盘寻找方向。"
     },
     {
       "label": "股权风险溢价",
-      "file": "ERP_Interval.csv"
+      "file": "ERP_Interval.csv",
+      "note": "股权风险溢价突破正负2倍标准差，中证全A出现极值与边际反转。"
     }
     
     
