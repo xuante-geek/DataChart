@@ -264,19 +264,7 @@ function buildExportSvg() {
   title.setAttribute("fill", "#111216");
   svg.appendChild(title);
 
-  const watermark = document.createElementNS(ns, "text");
-  const plotRight = chartLayout ? chartLayout.viewWidth - chartLayout.paddingRight : width - 16;
-  const plotBottom = chartLayout
-    ? chartLayout.viewHeight - chartLayout.paddingBottom
-    : height - 12;
-  watermark.textContent = WATERMARK_TEXT;
-  watermark.setAttribute("x", String(plotRight - 12));
-  watermark.setAttribute("y", String(plotBottom - 10));
-  watermark.setAttribute("text-anchor", "end");
-  watermark.setAttribute("font-size", "12");
-  watermark.setAttribute("font-weight", "600");
-  watermark.setAttribute("fill", "rgba(17, 18, 22, 0.35)");
-  svg.appendChild(watermark);
+  appendWatermark(svg, chartLayout, width, height);
 
   return { svg, width, height };
 }
@@ -299,6 +287,25 @@ function downloadSvgFallback(svg) {
   } catch (error) {
     // no-op
   }
+}
+
+function appendWatermark(svg, layout, width, height) {
+  if (!svg) {
+    return;
+  }
+  const plotRight = layout ? layout.viewWidth - layout.paddingRight : width - 16;
+  const plotBottom = layout ? layout.viewHeight - layout.paddingBottom : height - 12;
+  const watermark = createSvg("text", {
+    x: String(plotRight - 12),
+    y: String(plotBottom - 10),
+    "text-anchor": "end",
+    "font-size": "12",
+    "font-weight": "600",
+    fill: "rgba(17, 18, 22, 0.35)",
+    "pointer-events": "none",
+  });
+  watermark.textContent = WATERMARK_TEXT;
+  svg.appendChild(watermark);
 }
 
 function drawRoundedRect(ctx, x, y, width, height, radius) {
@@ -1210,6 +1217,14 @@ function renderChart(dataset, visibleSeries) {
     axisCount <= 1 ? paddingLeft : paddingLeft + Math.max(0, axisCount - 2) * axisGap;
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
+  const layout = {
+    viewWidth: width,
+    viewHeight: height,
+    paddingLeft,
+    paddingRight,
+    paddingTop,
+    paddingBottom,
+  };
 
   chart.innerHTML = "";
   chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -1342,6 +1357,7 @@ function renderChart(dataset, visibleSeries) {
     }
   });
 
+  appendWatermark(chart, layout, width, height);
   renderSummary(groups);
 
   const hoverLine = createSvg("line", {
@@ -1390,14 +1406,7 @@ function renderChart(dataset, visibleSeries) {
     ])),
   };
 
-  chartLayout = {
-    viewWidth: width,
-    viewHeight: height,
-    paddingLeft,
-    paddingRight,
-    paddingTop,
-    paddingBottom,
-  };
+  chartLayout = layout;
   updateSliderPadding();
 }
 
