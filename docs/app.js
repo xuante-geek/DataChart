@@ -1,4 +1,5 @@
 const fileInput = document.getElementById("fileInput");
+const bannerDate = document.getElementById("bannerDate");
 let chart = document.getElementById("chart");
 let legend = document.getElementById("legend");
 let axisSummary = document.getElementById("axisSummary");
@@ -543,6 +544,70 @@ function getInlineFiles() {
   return files;
 }
 
+function formatDateStamp(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}.${m}.${d}`;
+}
+
+function parseDateValue(value) {
+  if (!value) {
+    return null;
+  }
+  const str = String(value).trim();
+  if (!str) {
+    return null;
+  }
+  const match = str.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (
+      Number.isFinite(year) &&
+      Number.isFinite(month) &&
+      Number.isFinite(day) &&
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      day <= 31
+    ) {
+      return new Date(year, month - 1, day);
+    }
+  }
+  const fallback = new Date(str);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function getLatestDateFromDataset(dataset) {
+  if (!dataset || dataset.isNumericX) {
+    return null;
+  }
+  let latest = null;
+  dataset.xValues.forEach((value) => {
+    const parsed = parseDateValue(value);
+    if (!parsed) {
+      return;
+    }
+    if (!latest || parsed.getTime() > latest.getTime()) {
+      latest = parsed;
+    }
+  });
+  return latest;
+}
+
+function updateBannerDate(date) {
+  if (!bannerDate) {
+    return;
+  }
+  const stamp = formatDateStamp(date);
+  bannerDate.textContent = stamp ? `数据更新：${stamp}` : "";
+}
+
 function getSourceLabel(source) {
   if (!source) {
     return "内置数据";
@@ -734,6 +799,8 @@ async function loadBuiltInCharts() {
       : "已自动加载内置 CSV 曲线图，可继续上传 CSV。"
   );
 
+  let latestDate = null;
+
   for (const source of dataSources) {
     const title = getSourceLabel(source);
     const note = getSourceNote(source);
@@ -803,6 +870,10 @@ async function loadBuiltInCharts() {
         );
         continue;
       }
+      const candidateDate = getLatestDateFromDataset(dataset);
+      if (candidateDate && (!latestDate || candidateDate.getTime() > latestDate.getTime())) {
+        latestDate = candidateDate;
+      }
       withInstance(instance, () => {
         applyDataset(dataset);
       });
@@ -810,14 +881,18 @@ async function loadBuiltInCharts() {
       if (inlineFiles[source.file] && !preferInline) {
         const rows = parseCSV(inlineFiles[source.file]);
         if (rows.length >= 2) {
-          const dataset = buildDataset(rows);
-          if (dataset.series.length) {
-            withInstance(instance, () => {
-              applyDataset(dataset);
-            });
-            continue;
+        const dataset = buildDataset(rows);
+        if (dataset.series.length) {
+          const candidateDate = getLatestDateFromDataset(dataset);
+          if (candidateDate && (!latestDate || candidateDate.getTime() > latestDate.getTime())) {
+            latestDate = candidateDate;
           }
+          withInstance(instance, () => {
+            applyDataset(dataset);
+          });
+          continue;
         }
+      }
       }
       setBuiltinPanelError(
         groupParts.panel,
@@ -827,6 +902,8 @@ async function loadBuiltInCharts() {
       );
     }
   }
+
+  updateBannerDate(latestDate);
 }
 
 function applyDataset(dataset) {
