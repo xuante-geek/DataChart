@@ -90,27 +90,10 @@
                     <p>支持多列数据自动绘制，自动生成多个 Y 轴。</p>
                   </div>
                   <div class="chart-actions">
-                    <div class="chart-action-stack">
-                      <button class="button" id="downloadChart" type="button">下载曲线图</button>
-                      <div class="play-controls">
-                        <label class="play-speed">
-                          <span>速度</span>
-                          <input
-                            id="playSpeed"
-                            class="play-speed__input"
-                            type="number"
-                            min="1"
-                            max="1000"
-                            step="1"
-                            value="1"
-                          />
-                        </label>
-                        <button class="button play-toggle" id="playToggle" type="button">播放</button>
-                      </div>
-                    </div>
+                    <button class="button" id="downloadChart" type="button">下载曲线图</button>
+                    <div class="legend" id="legend"></div>
                   </div>
                 </div>
-                <div class="legend chart-legend" id="legend"></div>
                 <div class="chart-wrap">
                   <svg
                     id="chart"
