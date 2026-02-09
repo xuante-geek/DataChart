@@ -291,15 +291,16 @@ body {
 
 .chart-panel {
   width: 100%;
+  --chart-control-gap: 10px;
 }
 
 .panel__header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 24px;
+  row-gap: var(--chart-control-gap);
+  align-items: start;
+  margin-bottom: var(--chart-control-gap);
 }
 
 .panel__header h2 {
@@ -331,14 +332,51 @@ body {
   box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
 }
 
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 .chart-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--chart-control-gap);
+}
+
+.chart-action-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--chart-control-gap);
+}
+
+.play-controls {
+  display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: flex-end;
-  flex: 1 1 100%;
-  margin-top: 8px;
+  gap: 10px;
+}
+
+.play-speed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  justify-content: flex-end;
+}
+
+.play-speed__input {
+  width: 72px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  background: #fff;
+  font-size: 0.85rem;
 }
 
 .data-source {
@@ -655,17 +693,7 @@ body {
 }
 
 .chart-panel .panel__header {
-  align-items: flex-start;
   position: relative;
-  padding-right: 160px;
-}
-
-.chart-panel--static .panel__header {
-  padding-right: 0;
-}
-
-.chart-panel--static .chart-actions {
-  justify-content: flex-start;
 }
 
 .chart-wrap {
@@ -910,20 +938,10 @@ svg text {
 }
 
 .chart-panel .panel__header .button {
-  position: absolute;
-  top: 0;
-  right: 0;
+  position: static;
 }
 
-.chart-actions .legend {
-  margin-top: 36px;
-}
-
-.chart-panel--static .chart-actions .legend {
-  margin-top: 12px;
-}
-
-#uploadChartPanel .legend {
-  flex: 1 1 100%;
-  justify-content: flex-start;
+.chart-legend {
+  margin-top: calc(var(--chart-control-gap) - 30px);
+  margin-bottom: var(--chart-control-gap);
 }

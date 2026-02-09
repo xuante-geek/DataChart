@@ -1,4 +1,6 @@
 const fileInput = document.getElementById("fileInput");
+const playToggle = document.getElementById("playToggle");
+const playSpeed = document.getElementById("playSpeed");
 const bannerDate = document.getElementById("bannerDate");
 let chart = document.getElementById("chart");
 let legend = document.getElementById("legend");
@@ -13,7 +15,7 @@ const downloadChartBtn = document.getElementById("downloadChart");
 const builtinCharts = document.getElementById("builtinCharts");
 const uploadGroupContent = document.getElementById("uploadGroupContent");
 
-const WATERMARK_TEXT = "anexus.cn";
+const WATERMARK_TEXT = "www.anexus.com";
 
 let currentDataset = null;
 let currentRange = null;
@@ -302,7 +304,7 @@ function appendWatermark(svg, layout, width, height) {
     "text-anchor": "end",
     "font-size": "12",
     "font-weight": "600",
-    fill: "rgba(17, 18, 22, 0.35)",
+    fill: "rgba(17, 18, 22, 0.5)",
     "pointer-events": "none",
   });
   watermark.textContent = WATERMARK_TEXT;
@@ -500,6 +502,12 @@ function createChartInstance(options) {
     rangeSlider: options.rangeSlider || null,
     rangeTrack: options.rangeTrack || null,
     rangeSelection: options.rangeSelection || null,
+    playButton: options.playButton || null,
+    playSpeedInput: options.playSpeedInput || null,
+    isPlaying: false,
+    playRaf: null,
+    playLastTime: 0,
+    playAccumulator: 0,
     currentDataset: null,
     currentRange: null,
     visibility: new Map(),
@@ -511,6 +519,9 @@ function createChartInstance(options) {
     axisOverrides: new Map(),
     axisForcedSeries: new Set(),
   };
+  if (instance.playButton) {
+    instance.playButton.disabled = true;
+  }
   attachInstanceEvents(instance);
   return instance;
 }
@@ -529,6 +540,18 @@ function attachInstanceEvents(instance) {
       withInstance(instance, () => handleRangePointerDown(event));
     });
   }
+  if (instance.playButton) {
+    instance.playButton.addEventListener("click", () => {
+      withInstance(instance, togglePlayback);
+    });
+  }
+  if (instance.playSpeedInput) {
+    const handleSpeedChange = () => {
+      normalizePlaySpeed(instance.playSpeedInput);
+    };
+    instance.playSpeedInput.addEventListener("change", handleSpeedChange);
+    instance.playSpeedInput.addEventListener("blur", handleSpeedChange);
+  }
 }
 
 function getInlineSources() {
@@ -542,6 +565,134 @@ function getInlineFiles() {
     return {};
   }
   return files;
+}
+
+function normalizePlaySpeed(input) {
+  if (!input) {
+    return 1;
+  }
+  let value = Number.parseInt(input.value, 10);
+  if (!Number.isFinite(value)) {
+    value = 1;
+  }
+  value = Math.min(1000, Math.max(1, value));
+  input.value = String(value);
+  return value;
+}
+
+function getPlaySpeed(instance) {
+  if (!instance || !instance.playSpeedInput) {
+    return 1;
+  }
+  return normalizePlaySpeed(instance.playSpeedInput);
+}
+
+function isPlaybackAvailable() {
+  if (!currentDataset || !currentRange) {
+    return false;
+  }
+  const total = Math.max(0, currentDataset.xValues.length - 1);
+  return currentRange.end < total;
+}
+
+function updatePlayControls() {
+  const instance = activeInstance;
+  if (!instance || !instance.playButton) {
+    return;
+  }
+  const canPlay = isPlaybackAvailable();
+  if (!canPlay && instance.isPlaying) {
+    stopPlayback(instance);
+  }
+  instance.playButton.disabled = !canPlay;
+  instance.playButton.textContent = instance.isPlaying ? "暂停" : "播放";
+}
+
+function stopPlayback(instance) {
+  const target = instance || activeInstance;
+  if (!target) {
+    return;
+  }
+  if (activeInstance !== target) {
+    withInstance(target, () => stopPlayback(target));
+    return;
+  }
+  if (target.playRaf) {
+    cancelAnimationFrame(target.playRaf);
+    target.playRaf = null;
+  }
+  target.isPlaying = false;
+  target.playAccumulator = 0;
+  updatePlayControls();
+}
+
+function stepPlayback(timestamp) {
+  const instance = activeInstance;
+  if (!instance || !instance.isPlaying) {
+    return;
+  }
+  if (!currentDataset || !currentRange) {
+    stopPlayback(instance);
+    return;
+  }
+  const total = Math.max(0, currentDataset.xValues.length - 1);
+  if (currentRange.end >= total) {
+    stopPlayback(instance);
+    return;
+  }
+  const speed = getPlaySpeed(instance);
+  const delta = Math.max(0, (timestamp - instance.playLastTime) / 1000);
+  instance.playLastTime = timestamp;
+  instance.playAccumulator += delta * speed;
+  const steps = Math.floor(instance.playAccumulator);
+  if (steps > 0) {
+    instance.playAccumulator -= steps;
+    const newEnd = clamp(currentRange.end + steps, currentRange.start, total);
+    setRange(currentRange.start, newEnd);
+  }
+  if (!instance.isPlaying) {
+    return;
+  }
+  if (currentRange.end >= total) {
+    stopPlayback(instance);
+    return;
+  }
+  instance.playRaf = requestAnimationFrame(stepPlayback);
+}
+
+function startPlayback(instance) {
+  const target = instance || activeInstance;
+  if (!target) {
+    return;
+  }
+  if (activeInstance !== target) {
+    withInstance(target, () => startPlayback(target));
+    return;
+  }
+  if (target.isPlaying) {
+    return;
+  }
+  if (!isPlaybackAvailable()) {
+    updatePlayControls();
+    return;
+  }
+  target.isPlaying = true;
+  target.playAccumulator = 0;
+  target.playLastTime = performance.now();
+  updatePlayControls();
+  target.playRaf = requestAnimationFrame(stepPlayback);
+}
+
+function togglePlayback() {
+  const instance = activeInstance;
+  if (!instance) {
+    return;
+  }
+  if (instance.isPlaying) {
+    stopPlayback(instance);
+    return;
+  }
+  startPlayback(instance);
 }
 
 function formatDateStamp(date) {
@@ -664,14 +815,41 @@ function createBuiltinGroup(title, note) {
 
   const actions = document.createElement("div");
   actions.className = "chart-actions";
+  const actionStack = document.createElement("div");
+  actionStack.className = "chart-action-stack";
   const downloadBtn = document.createElement("button");
   downloadBtn.className = "button";
   downloadBtn.type = "button";
   downloadBtn.textContent = "下载曲线图";
+
+  const playControls = document.createElement("div");
+  playControls.className = "play-controls";
+  const speedLabel = document.createElement("label");
+  speedLabel.className = "play-speed";
+  const speedText = document.createElement("span");
+  speedText.textContent = "速度";
+  const speedInput = document.createElement("input");
+  speedInput.className = "play-speed__input";
+  speedInput.type = "number";
+  speedInput.min = "1";
+  speedInput.max = "1000";
+  speedInput.step = "1";
+  speedInput.value = "1";
+  speedLabel.appendChild(speedText);
+  speedLabel.appendChild(speedInput);
+  const playButton = document.createElement("button");
+  playButton.className = "button play-toggle";
+  playButton.type = "button";
+  playButton.textContent = "播放";
+  playControls.appendChild(speedLabel);
+  playControls.appendChild(playButton);
+
   const legendBlock = document.createElement("div");
-  legendBlock.className = "legend";
-  actions.appendChild(downloadBtn);
-  actions.appendChild(legendBlock);
+  legendBlock.className = "legend chart-legend";
+
+  actionStack.appendChild(downloadBtn);
+  actionStack.appendChild(playControls);
+  actions.appendChild(actionStack);
 
   panelHeader.appendChild(panelText);
   panelHeader.appendChild(actions);
@@ -706,6 +884,7 @@ function createBuiltinGroup(title, note) {
   wrap.appendChild(slider);
 
   panel.appendChild(panelHeader);
+  panel.appendChild(legendBlock);
   panel.appendChild(wrap);
 
   content.appendChild(panel);
@@ -719,6 +898,8 @@ function createBuiltinGroup(title, note) {
     chart: svg,
     legend: legendBlock,
     downloadBtn,
+    playButton,
+    playSpeedInput: speedInput,
     axisSummary: null,
     seriesControls: null,
     rangeSlider: slider,
@@ -820,6 +1001,8 @@ async function loadBuiltInCharts() {
       rangeSlider: groupParts.rangeSlider,
       rangeTrack: groupParts.rangeTrack,
       rangeSelection: groupParts.rangeSelection,
+      playButton: groupParts.playButton,
+      playSpeedInput: groupParts.playSpeedInput,
     });
     builtinInstances.push(instance);
     if (groupParts.downloadBtn) {
@@ -907,6 +1090,7 @@ async function loadBuiltInCharts() {
 }
 
 function applyDataset(dataset) {
+  stopPlayback(activeInstance);
   currentDataset = dataset;
   currentRange = {
     start: 0,
@@ -1205,6 +1389,7 @@ function applyAxisOverrides(groups) {
 }
 
 function renderEmpty(message) {
+  stopPlayback(activeInstance);
   currentDataset = null;
   currentRange = null;
   visibility.clear();
@@ -1236,6 +1421,7 @@ function renderEmpty(message) {
     rangeTrack.style.left = "0px";
     rangeTrack.style.right = "0px";
   }
+  updatePlayControls();
 }
 
 function renderAll() {
@@ -1827,11 +2013,13 @@ function updateSlider() {
     !currentDataset ||
     !currentRange
   ) {
+    updatePlayControls();
     return;
   }
   const total = Math.max(0, currentDataset.xValues.length - 1);
   if (total <= 0) {
     rangeSlider.classList.add("is-hidden");
+    updatePlayControls();
     return;
   }
   rangeSlider.classList.remove("is-hidden");
@@ -1848,6 +2036,7 @@ function updateSlider() {
   const endPx = endRatio * trackWidth;
   rangeSelection.style.left = `${startPx}px`;
   rangeSelection.style.right = `${trackWidth - endPx}px`;
+  updatePlayControls();
 }
 
 function drawGrid(svg, left, top, width, height, baseGroup, tickCount) {
@@ -2352,6 +2541,9 @@ function handleRangePointerDown(event) {
   if (!currentDataset || !currentRange || !rangeSlider || !rangeSelection) {
     return;
   }
+  if (activeInstance && activeInstance.isPlaying) {
+    stopPlayback(activeInstance);
+  }
   const target = event.target;
   const handleType = target.dataset.handle;
   const dragType = handleType === "left" || handleType === "right" ? handleType : "range";
@@ -2533,6 +2725,8 @@ uploadInstance = createChartInstance({
   rangeSlider,
   rangeTrack,
   rangeSelection,
+  playButton: playToggle,
+  playSpeedInput: playSpeed,
 });
 
 window.addEventListener("resize", () => {
