@@ -421,6 +421,11 @@ body {
   .info-modal__content {
     width: calc(100vw - 12px);
   }
+
+  .info-modal__image {
+    width: 100%;
+    height: auto;
+  }
 }
 
 .info-modal__loading {
