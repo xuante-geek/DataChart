@@ -334,6 +334,17 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  position: relative;
+}
+
+.info-bubble::after {
+  content: "";
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .info-bubble:hover {
@@ -395,7 +406,8 @@ body {
 
 @media (max-width: 720px) {
   .info-modal__content {
-    max-width: 96vw;
+    width: calc(100vw - 24px);
+    max-width: none;
     max-height: 92vh;
     padding: 12px;
   }
