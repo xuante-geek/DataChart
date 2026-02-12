@@ -14,6 +14,7 @@ const builtinCharts = document.getElementById("builtinCharts");
 const uploadGroupContent = document.getElementById("uploadGroupContent");
 let infoModal = document.getElementById("infoModal");
 let infoModalImage = document.getElementById("infoModalImage");
+let infoModalLoading = document.querySelector(".info-modal__loading");
 let infoModalInitialized = false;
 
 const WATERMARK_TEXT = "anexus.cn";
@@ -575,14 +576,20 @@ function ensureInfoModal() {
     img.className = "info-modal__image";
     img.id = "infoModalImage";
     img.alt = "释义图片";
-    img.loading = "lazy";
+    img.loading = "eager";
 
     content.appendChild(closeBtn);
+    const loading = document.createElement("div");
+    loading.className = "info-modal__loading";
+    loading.textContent = "加载中…";
+
     content.appendChild(img);
+    content.appendChild(loading);
     infoModal.appendChild(backdrop);
     infoModal.appendChild(content);
     document.body.appendChild(infoModal);
     infoModalImage = img;
+    infoModalLoading = loading;
   }
 
   if (!infoModalInitialized) {
@@ -606,7 +613,20 @@ function openInfoModal(src) {
   if (!infoModal || !infoModalImage) {
     return;
   }
+  if (infoModalLoading) {
+    infoModalLoading.style.display = "block";
+  }
   const resolved = new URL(src, window.location.href).href;
+  infoModalImage.onload = () => {
+    if (infoModalLoading) {
+      infoModalLoading.style.display = "none";
+    }
+  };
+  infoModalImage.onerror = () => {
+    if (infoModalLoading) {
+      infoModalLoading.textContent = "图片加载失败";
+    }
+  };
   infoModalImage.src = resolved;
   infoModal.classList.add("is-open");
   infoModal.setAttribute("aria-hidden", "false");
@@ -618,7 +638,13 @@ function closeInfoModal() {
   }
   infoModal.classList.remove("is-open");
   infoModal.setAttribute("aria-hidden", "true");
+  if (infoModalLoading) {
+    infoModalLoading.textContent = "加载中…";
+    infoModalLoading.style.display = "block";
+  }
   infoModalImage.removeAttribute("src");
+  infoModalImage.onload = null;
+  infoModalImage.onerror = null;
 }
 
 function escapeHtml(text) {

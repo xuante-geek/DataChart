@@ -391,6 +391,13 @@ body {
   border-radius: 12px;
 }
 
+.info-modal__loading {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+}
+
 .info-modal__close {
   position: absolute;
   top: 8px;
