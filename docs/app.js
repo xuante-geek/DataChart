@@ -554,7 +554,7 @@ function escapeHtml(text) {
 }
 
 function formatNoteHtml(note) {
-  const safe = escapeHtml(note || "");
+  const safe = escapeHtml(note || "").replace(/\r?\n/g, "<br>");
   const tokens = [
     {
       key: "__HL_ERPQ__",
