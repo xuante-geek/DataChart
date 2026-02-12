@@ -785,9 +785,21 @@ function createBuiltinGroup(title, note, infoImage) {
 
   const header = document.createElement("div");
   header.className = "group-header";
+  const titleRow = document.createElement("div");
+  titleRow.className = "panel-title-row";
   const heading = document.createElement("h2");
   heading.textContent = title;
-  header.appendChild(heading);
+  titleRow.appendChild(heading);
+  if (infoImage) {
+    const infoButton = document.createElement("button");
+    infoButton.className = "info-bubble";
+    infoButton.type = "button";
+    infoButton.textContent = "i";
+    infoButton.setAttribute("aria-label", "查看释义图片");
+    infoButton.addEventListener("click", () => openInfoModal(infoImage));
+    titleRow.appendChild(infoButton);
+  }
+  header.appendChild(titleRow);
 
   const content = document.createElement("div");
   content.className = "group-content";
@@ -799,30 +811,15 @@ function createBuiltinGroup(title, note, infoImage) {
   panelHeader.className = "panel__header";
 
   const panelText = document.createElement("div");
-  const titleRow = document.createElement("div");
-  titleRow.className = "panel-title-row";
-  const panelTitle = document.createElement("h2");
-  panelTitle.textContent = title;
-  titleRow.appendChild(panelTitle);
-  if (infoImage) {
-    const infoButton = document.createElement("button");
-    infoButton.className = "info-bubble";
-    infoButton.type = "button";
-    infoButton.textContent = "i";
-    infoButton.setAttribute("aria-label", "查看释义图片");
-    infoButton.addEventListener("click", () => openInfoModal(infoImage));
-    titleRow.appendChild(infoButton);
-  }
   const panelDesc = document.createElement("p");
   const noteText = note || "表格使用注释说明";
   panelDesc.innerHTML = formatNoteHtml(noteText);
-  panelText.appendChild(titleRow);
   panelText.appendChild(panelDesc);
 
   const actions = document.createElement("div");
   actions.className = "chart-actions";
   const downloadBtn = document.createElement("button");
-  downloadBtn.className = "button";
+  downloadBtn.className = "button button--flat";
   downloadBtn.type = "button";
   downloadBtn.textContent = "下载曲线图";
   const legendBlock = document.createElement("div");
