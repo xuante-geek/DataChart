@@ -12,6 +12,8 @@ let rangeSelection = document.getElementById("rangeSelection");
 const downloadChartBtn = document.getElementById("downloadChart");
 const builtinCharts = document.getElementById("builtinCharts");
 const uploadGroupContent = document.getElementById("uploadGroupContent");
+const infoModal = document.getElementById("infoModal");
+const infoModalImage = document.getElementById("infoModalImage");
 
 const WATERMARK_TEXT = "anexus.cn";
 
@@ -544,6 +546,39 @@ function getInlineFiles() {
   return files;
 }
 
+function openInfoModal(src) {
+  if (!infoModal || !infoModalImage) {
+    return;
+  }
+  infoModalImage.src = src;
+  infoModal.classList.add("is-open");
+  infoModal.setAttribute("aria-hidden", "false");
+}
+
+function closeInfoModal() {
+  if (!infoModal || !infoModalImage) {
+    return;
+  }
+  infoModal.classList.remove("is-open");
+  infoModal.setAttribute("aria-hidden", "true");
+  infoModalImage.removeAttribute("src");
+}
+
+if (infoModal) {
+  infoModal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target && target.dataset && target.dataset.close === "true") {
+      closeInfoModal();
+    }
+  });
+}
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeInfoModal();
+  }
+});
+
 function escapeHtml(text) {
   return String(text)
     .replace(/&/g, "&amp;")
@@ -676,7 +711,7 @@ function getSourceNote(source) {
   return "表格使用注释说明";
 }
 
-function createBuiltinGroup(title, note) {
+function createBuiltinGroup(title, note, infoImage) {
   const group = document.createElement("section");
   group.className = "chart-group";
 
@@ -696,12 +731,24 @@ function createBuiltinGroup(title, note) {
   panelHeader.className = "panel__header";
 
   const panelText = document.createElement("div");
+  const titleRow = document.createElement("div");
+  titleRow.className = "panel-title-row";
   const panelTitle = document.createElement("h2");
   panelTitle.textContent = title;
+  titleRow.appendChild(panelTitle);
+  if (infoImage) {
+    const infoButton = document.createElement("button");
+    infoButton.className = "info-bubble";
+    infoButton.type = "button";
+    infoButton.textContent = "i";
+    infoButton.setAttribute("aria-label", "查看释义图片");
+    infoButton.addEventListener("click", () => openInfoModal(infoImage));
+    titleRow.appendChild(infoButton);
+  }
   const panelDesc = document.createElement("p");
   const noteText = note || "表格使用注释说明";
   panelDesc.innerHTML = formatNoteHtml(noteText);
-  panelText.appendChild(panelTitle);
+  panelText.appendChild(titleRow);
   panelText.appendChild(panelDesc);
 
   const actions = document.createElement("div");
@@ -846,7 +893,11 @@ async function loadBuiltInCharts() {
   for (const source of dataSources) {
     const title = getSourceLabel(source);
     const note = getSourceNote(source);
-    const groupParts = createBuiltinGroup(title, note);
+    const infoImage =
+      source.file === "Market_Thermometer.csv" || title === "市场温度与估值"
+        ? "data/information.png"
+        : "";
+    const groupParts = createBuiltinGroup(title, note, infoImage);
     builtinCharts.appendChild(groupParts.group);
     const axisTitle = `曲线图——${title}`;
     const instance = createChartInstance({

@@ -312,6 +312,33 @@ body {
   font-size: 0.95rem;
 }
 
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-bubble {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--stroke);
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.info-bubble:hover {
+  color: var(--ink);
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
 .note-hl-erp-quantile {
   color: #74b9ff;
   font-weight: 600;
@@ -325,6 +352,62 @@ body {
 .note-hl-erp {
   color: #D63031;
   font-weight: 600;
+}
+
+.info-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.info-modal.is-open {
+  display: flex;
+}
+
+.info-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.info-modal__content {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  max-width: min(90vw, 980px);
+  max-height: 85vh;
+  z-index: 1;
+}
+
+.info-modal__image {
+  display: block;
+  max-width: 100%;
+  max-height: 80vh;
+  border-radius: 12px;
+}
+
+.info-modal__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--stroke);
+  background: #fff;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.info-modal__close:hover {
+  color: var(--ink);
+  border-color: rgba(15, 23, 42, 0.2);
 }
 
 
