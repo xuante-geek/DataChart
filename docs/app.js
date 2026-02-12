@@ -12,8 +12,9 @@ let rangeSelection = document.getElementById("rangeSelection");
 const downloadChartBtn = document.getElementById("downloadChart");
 const builtinCharts = document.getElementById("builtinCharts");
 const uploadGroupContent = document.getElementById("uploadGroupContent");
-const infoModal = document.getElementById("infoModal");
-const infoModalImage = document.getElementById("infoModalImage");
+let infoModal = document.getElementById("infoModal");
+let infoModalImage = document.getElementById("infoModalImage");
+let infoModalInitialized = false;
 
 const WATERMARK_TEXT = "anexus.cn";
 
@@ -546,11 +547,67 @@ function getInlineFiles() {
   return files;
 }
 
+function ensureInfoModal() {
+  if (!infoModal) {
+    infoModal = document.createElement("div");
+    infoModal.className = "info-modal";
+    infoModal.id = "infoModal";
+    infoModal.setAttribute("aria-hidden", "true");
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "info-modal__backdrop";
+    backdrop.dataset.close = "true";
+
+    const content = document.createElement("div");
+    content.className = "info-modal__content";
+    content.setAttribute("role", "dialog");
+    content.setAttribute("aria-modal", "true");
+    content.setAttribute("aria-label", "释义图片");
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "info-modal__close";
+    closeBtn.type = "button";
+    closeBtn.dataset.close = "true";
+    closeBtn.setAttribute("aria-label", "关闭");
+    closeBtn.textContent = "×";
+
+    const img = document.createElement("img");
+    img.className = "info-modal__image";
+    img.id = "infoModalImage";
+    img.alt = "释义图片";
+    img.loading = "lazy";
+
+    content.appendChild(closeBtn);
+    content.appendChild(img);
+    infoModal.appendChild(backdrop);
+    infoModal.appendChild(content);
+    document.body.appendChild(infoModal);
+    infoModalImage = img;
+  }
+
+  if (!infoModalInitialized) {
+    infoModal.addEventListener("click", (event) => {
+      const target = event.target;
+      if (target && target.dataset && target.dataset.close === "true") {
+        closeInfoModal();
+      }
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeInfoModal();
+      }
+    });
+    infoModalInitialized = true;
+  }
+}
+
 function openInfoModal(src) {
+  ensureInfoModal();
   if (!infoModal || !infoModalImage) {
     return;
   }
-  infoModalImage.src = src;
+  const resolved = new URL(src, window.location.href).href;
+  infoModalImage.src = resolved;
   infoModal.classList.add("is-open");
   infoModal.setAttribute("aria-hidden", "false");
 }
@@ -563,21 +620,6 @@ function closeInfoModal() {
   infoModal.setAttribute("aria-hidden", "true");
   infoModalImage.removeAttribute("src");
 }
-
-if (infoModal) {
-  infoModal.addEventListener("click", (event) => {
-    const target = event.target;
-    if (target && target.dataset && target.dataset.close === "true") {
-      closeInfoModal();
-    }
-  });
-}
-
-window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") {
-    closeInfoModal();
-  }
-});
 
 function escapeHtml(text) {
   return String(text)
