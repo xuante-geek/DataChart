@@ -417,6 +417,12 @@ body {
   }
 }
 
+@media (max-width: 720px) and (orientation: portrait) {
+  .info-modal__content {
+    width: calc(100vw - 12px);
+  }
+}
+
 .info-modal__loading {
   margin-top: 12px;
   font-size: 0.85rem;
