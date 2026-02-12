@@ -984,14 +984,27 @@ svg text {
 .range-handle {
   position: absolute;
   top: 50%;
+  width: 72px;
+  height: 72px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  touch-action: none;
+  z-index: 2;
+}
+
+.range-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 18px;
   height: 18px;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   background: #fff;
   border: 2px solid var(--accent);
   box-shadow: 0 8px 16px rgba(15, 23, 42, 0.18);
-  touch-action: none;
-  z-index: 2;
 }
 
 .range-handle[data-handle="left"] {
