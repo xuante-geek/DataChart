@@ -312,6 +312,21 @@ body {
   font-size: 0.95rem;
 }
 
+.note-hl-erp-quantile {
+  color: #74b9ff;
+  font-weight: 600;
+}
+
+.note-hl-market {
+  color: #f19066;
+  font-weight: 600;
+}
+
+.note-hl-erp {
+  color: #D63031;
+  font-weight: 600;
+}
+
 
 .button {
   border-radius: 999px;

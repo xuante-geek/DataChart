@@ -544,6 +544,47 @@ function getInlineFiles() {
   return files;
 }
 
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatNoteHtml(note) {
+  const safe = escapeHtml(note || "");
+  const tokens = [
+    {
+      key: "__HL_ERPQ__",
+      text: "股权风险溢价分位",
+      className: "note-hl-erp-quantile",
+    },
+    {
+      key: "__HL_MARKET__",
+      text: "市场温度",
+      className: "note-hl-market",
+    },
+    {
+      key: "__HL_ERP__",
+      text: "股权风险溢价",
+      className: "note-hl-erp",
+    },
+  ];
+
+  let output = safe;
+  tokens.forEach((token) => {
+    output = output.split(token.text).join(token.key);
+  });
+  tokens.forEach((token) => {
+    output = output
+      .split(token.key)
+      .join(`<span class="note-hl ${token.className}">${token.text}</span>`);
+  });
+  return output;
+}
+
 function formatDateStamp(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return "";
@@ -658,7 +699,8 @@ function createBuiltinGroup(title, note) {
   const panelTitle = document.createElement("h2");
   panelTitle.textContent = title;
   const panelDesc = document.createElement("p");
-  panelDesc.textContent = note || "表格使用注释说明";
+  const noteText = note || "表格使用注释说明";
+  panelDesc.innerHTML = formatNoteHtml(noteText);
   panelText.appendChild(panelTitle);
   panelText.appendChild(panelDesc);
 
