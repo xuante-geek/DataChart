@@ -7,7 +7,7 @@ window.__DATA_SOURCES__ = [
   {
     "label": "股权风险溢价",
     "file": "ERP_Interval.csv",
-    "note": "股权风险溢价逼近±2倍标准差时，中证全A指数往往处于历史极值，并伴随趋势的边际反转。"
+    "note": "股权风险溢价接近±2倍标准差时，中证全A指数往往处于历史极值，并伴随趋势的边际反转。"
   }
 ];
 window.__DATA_FILES__ = {

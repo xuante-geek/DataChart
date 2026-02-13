@@ -70,14 +70,14 @@ const seriesDefaultConfig = new Map([
   ["股权风险溢价分位", { colorIndex: 1, type: "line" }],
   ["全A点位", { colorIndex: 10, type: "area" }],
   ["市场温度", { colorIndex: 5, type: "line" }],
-  ["股权风险溢价", { colorIndex: 7, type: "line" }],
+  ["股权风险溢价", { color: "#778beb", type: "line" }],
   ["十年国债收益率", { colorIndex: 6, type: "line" }],
   ["PE-TTM-S", { colorIndex: 3, type: "line" }],
-  ["+2σ", { colorIndex: 10, type: "line" }],
+  ["+2σ", { color: "#00b894", type: "line" }],
   ["+1σ", { colorIndex: 10, type: "line" }],
   ["中位数", { colorIndex: 10, type: "line" }],
   ["-1σ", { colorIndex: 10, type: "line" }],
-  ["-2σ", { colorIndex: 10, type: "line" }],
+  ["-2σ", { color: "#f19066", type: "line" }],
 ]);
 
 if (fileInput) {
@@ -1719,7 +1719,7 @@ function getSeriesStyle(series) {
       type: preset ? preset.type : "line",
       showCurrent: false,
       color: preset
-        ? colorOptions[preset.colorIndex]
+        ? (preset.color || colorOptions[preset.colorIndex])
         : colorOptions[index % colorOptions.length],
     });
   }
