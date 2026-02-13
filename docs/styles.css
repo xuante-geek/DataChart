@@ -339,6 +339,10 @@ body {
   font-weight: 600;
 }
 
+.chart-panel .panel__header p {
+  font-weight: 400;
+}
+
 .panel-title-row {
   display: flex;
   align-items: center;
