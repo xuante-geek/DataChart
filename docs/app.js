@@ -32,6 +32,7 @@ let axisForcedSeries = new Set();
 let dropdownListenerAttached = false;
 let dataSources = [];
 const dataSourceManifest = "./data/sources.json";
+const remoteCsvBaseUrl = "https://anexus-data-1399092305.cos.ap-guangzhou.myqcloud.com/data";
 
 let activeInstance = null;
 const builtinInstances = [];
@@ -535,17 +536,16 @@ function attachInstanceEvents(instance) {
   }
 }
 
-function getInlineSources() {
-  const list = window.__DATA_SOURCES__;
-  return Array.isArray(list) ? list : [];
-}
-
-function getInlineFiles() {
-  const files = window.__DATA_FILES__;
-  if (!files || typeof files !== "object") {
-    return {};
+function resolveDataSourceUrl(file) {
+  if (!file) {
+    return "";
   }
-  return files;
+  const raw = String(file).trim();
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  const normalized = raw.replace(/^\/+/, "");
+  return `${remoteCsvBaseUrl}/${normalized}`;
 }
 
 function ensureInfoModal() {
@@ -913,11 +913,6 @@ async function loadBuiltInCharts() {
   builtinCharts.innerHTML = "";
   builtinInstances.length = 0;
 
-  const inlineSources = getInlineSources();
-  const inlineFiles = getInlineFiles();
-  const hasInline = inlineSources.length > 0 && Object.keys(inlineFiles).length > 0;
-  const preferInline = window.location.protocol === "file:" && hasInline;
-
   let manifestLoaded = true;
   try {
     const response = await fetch(dataSourceManifest, { cache: "no-store" });
@@ -932,26 +927,16 @@ async function loadBuiltInCharts() {
   } catch (error) {
     manifestLoaded = false;
     dataSources = [];
-    if (hasInline) {
-      dataSources = inlineSources.filter(
-        (item) => item && item.file && String(item.file).toLowerCase().endsWith(".csv")
-      );
-      manifestLoaded = true;
-    }
   }
 
   if (!dataSources.length) {
     setDataSourceNote(
-      manifestLoaded ? "未找到内置 CSV，可继续上传 CSV。" : "未读取到内置 CSV，可继续上传 CSV。"
+      manifestLoaded ? "未找到远程 CSV 配置，可继续上传 CSV。" : "未读取到数据源配置，可继续上传 CSV。"
     );
     return;
   }
 
-  setDataSourceNote(
-    preferInline
-      ? "已自动加载内置 CSV 曲线图（本地内嵌数据）。"
-      : "已自动加载内置 CSV 曲线图，可继续上传 CSV。"
-  );
+  setDataSourceNote("已自动加载远程 CSV 曲线图，可继续上传 CSV。");
 
   let latestDate = null;
 
@@ -997,17 +982,15 @@ async function loadBuiltInCharts() {
     }
 
     try {
-      let text = null;
-      if (inlineFiles[source.file] && preferInline) {
-        text = inlineFiles[source.file];
-      } else {
-        const url = source.file.startsWith("http") ? source.file : `./data/${source.file}`;
-        const response = await fetch(url, { cache: "no-store" });
-        if (!response.ok) {
-          throw new Error("failed");
-        }
-        text = await response.text();
+      const url = resolveDataSourceUrl(source.file);
+      if (!url) {
+        throw new Error("missing-source-url");
       }
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("failed");
+      }
+      const text = await response.text();
       const rows = parseCSV(text);
       if (!rows.length || rows.length < 2) {
         setBuiltinPanelError(
@@ -1036,22 +1019,6 @@ async function loadBuiltInCharts() {
         applyDataset(dataset);
       });
     } catch (error) {
-      if (inlineFiles[source.file] && !preferInline) {
-        const rows = parseCSV(inlineFiles[source.file]);
-        if (rows.length >= 2) {
-        const dataset = buildDataset(rows);
-        if (dataset.series.length) {
-          const candidateDate = getLatestDateFromDataset(dataset);
-          if (candidateDate && (!latestDate || candidateDate.getTime() > latestDate.getTime())) {
-            latestDate = candidateDate;
-          }
-          withInstance(instance, () => {
-            applyDataset(dataset);
-          });
-          continue;
-        }
-      }
-      }
       setBuiltinPanelError(
         groupParts.panel,
         `加载失败：${title}`,
