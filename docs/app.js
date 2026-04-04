@@ -506,56 +506,6 @@ function normalizeFiniteNumber(value) {
   return Number.isFinite(num) ? num : null;
 }
 
-function normalizeSeriesScaleOverrides(overrides) {
-  if (!overrides || typeof overrides !== "object") {
-    return new Map();
-  }
-  const map = new Map();
-  Object.entries(overrides).forEach(([seriesName, mode]) => {
-    const key = String(seriesName || "").trim();
-    if (!key) {
-      return;
-    }
-    map.set(key, normalizeYScaleMode(mode));
-  });
-  return map;
-}
-
-function resolveGroupUseLogScale(group, instance, defaultUseLogScale) {
-  if (!group || !Array.isArray(group.series) || !instance) {
-    return Boolean(defaultUseLogScale);
-  }
-  const overrides = instance.seriesScaleOverrides;
-  if (!(overrides instanceof Map) || overrides.size === 0) {
-    return Boolean(defaultUseLogScale);
-  }
-
-  let hasLogOverride = false;
-  let hasLinearOverride = false;
-  group.series.forEach((series) => {
-    const name = String(series?.name || "").trim();
-    if (!name || !overrides.has(name)) {
-      return;
-    }
-    const mode = overrides.get(name);
-    if (mode === Y_SCALE_MODE_LOG) {
-      hasLogOverride = true;
-      return;
-    }
-    if (mode === Y_SCALE_MODE_LINEAR) {
-      hasLinearOverride = true;
-    }
-  });
-
-  if (hasLogOverride) {
-    return true;
-  }
-  if (hasLinearOverride) {
-    return false;
-  }
-  return Boolean(defaultUseLogScale);
-}
-
 function createChartInstance(options) {
   const instance = {
     id: options.id || "",
@@ -584,7 +534,6 @@ function createChartInstance(options) {
     yScaleMode: normalizeYScaleMode(options.yScaleMode),
     yScaleMin: normalizeFiniteNumber(options.yScaleMin),
     yScaleMax: normalizeFiniteNumber(options.yScaleMax),
-    seriesScaleOverrides: normalizeSeriesScaleOverrides(options.seriesScaleOverrides),
   };
   attachInstanceEvents(instance);
   return instance;
@@ -1029,7 +978,6 @@ async function loadBuiltInCharts() {
       yScaleMode: source.yScaleMode || source.yScale,
       yScaleMin: source.yScaleMin ?? source.minY,
       yScaleMax: source.yScaleMax ?? source.maxY,
-      seriesScaleOverrides: source.seriesScaleOverrides,
       chart: groupParts.chart,
       legend: groupParts.legend,
       axisSummary: groupParts.axisSummary,
@@ -1482,13 +1430,12 @@ function refreshChart() {
 function renderChart(dataset, visibleSeries) {
   const groups = groupSeries(dataset.series);
   applyAxisOverrides(groups);
-  const defaultUseLogScale = activeInstance && activeInstance.yScaleMode === Y_SCALE_MODE_LOG;
+  const useLogScale = activeInstance && activeInstance.yScaleMode === Y_SCALE_MODE_LOG;
   const yScaleMin = activeInstance ? activeInstance.yScaleMin : null;
   const yScaleMax = activeInstance ? activeInstance.yScaleMax : null;
   const groupScaleMap = new Map();
   groups.forEach((group) => {
-    const groupUseLogScale = resolveGroupUseLogScale(group, activeInstance, defaultUseLogScale);
-    groupScaleMap.set(group, resolveGroupScale(group, groupUseLogScale, yScaleMin, yScaleMax));
+    groupScaleMap.set(group, resolveGroupScale(group, useLogScale, yScaleMin, yScaleMax));
   });
   const axisCount = groups.length;
 
