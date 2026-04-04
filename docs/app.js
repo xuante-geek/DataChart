@@ -33,6 +33,8 @@ let dropdownListenerAttached = false;
 let dataSources = [];
 const dataSourceManifest = "./data/sources.json";
 const remoteCsvBaseUrl = "https://anexus-data-1399092305.cos.ap-guangzhou.myqcloud.com/data";
+const Y_SCALE_MODE_LINEAR = "linear";
+const Y_SCALE_MODE_LOG = "log";
 
 let activeInstance = null;
 const builtinInstances = [];
@@ -492,6 +494,13 @@ function withInstance(instance, fn) {
   return result;
 }
 
+function normalizeYScaleMode(mode) {
+  if (String(mode || "").trim().toLowerCase() === Y_SCALE_MODE_LOG) {
+    return Y_SCALE_MODE_LOG;
+  }
+  return Y_SCALE_MODE_LINEAR;
+}
+
 function createChartInstance(options) {
   const instance = {
     id: options.id || "",
@@ -517,6 +526,7 @@ function createChartInstance(options) {
     seriesStyles: new Map(),
     axisOverrides: new Map(),
     axisForcedSeries: new Set(),
+    yScaleMode: normalizeYScaleMode(options.yScaleMode),
   };
   attachInstanceEvents(instance);
   return instance;
@@ -958,6 +968,7 @@ async function loadBuiltInCharts() {
       exportTitle: `曲线图——${title}`,
       axisLabelPrefix: axisTitle,
       styleScope: "builtin",
+      yScaleMode: source.yScaleMode || source.yScale,
       chart: groupParts.chart,
       legend: groupParts.legend,
       axisSummary: groupParts.axisSummary,
@@ -1410,6 +1421,11 @@ function refreshChart() {
 function renderChart(dataset, visibleSeries) {
   const groups = groupSeries(dataset.series);
   applyAxisOverrides(groups);
+  const useLogScale = activeInstance && activeInstance.yScaleMode === Y_SCALE_MODE_LOG;
+  const groupScaleMap = new Map();
+  groups.forEach((group) => {
+    groupScaleMap.set(group, resolveGroupScale(group, useLogScale));
+  });
   const axisCount = groups.length;
 
   const { width, height } = getChartDimensions();
@@ -1444,12 +1460,33 @@ function renderChart(dataset, visibleSeries) {
   const xScale = (value) =>
     paddingLeft + ((value - xRangeMin) / (xRangeMax - xRangeMin)) * chartWidth;
 
-  const yScale = (value, group) =>
-    paddingTop + (1 - (value - group.min) / (group.max - group.min)) * chartHeight;
+  const yScale = (value, group) => {
+    const scale = groupScaleMap.get(group);
+    return mapYValue(value, scale, paddingTop, chartHeight);
+  };
 
   const tickCount = 11;
-  drawGrid(chart, paddingLeft, paddingTop, chartWidth, chartHeight, groups[0], tickCount);
-  drawAxes(chart, groups, paddingLeft, paddingTop, chartWidth, chartHeight, axisGap, tickCount);
+  drawGrid(
+    chart,
+    paddingLeft,
+    paddingTop,
+    chartWidth,
+    chartHeight,
+    groups[0],
+    tickCount,
+    groupScaleMap
+  );
+  drawAxes(
+    chart,
+    groups,
+    paddingLeft,
+    paddingTop,
+    chartWidth,
+    chartHeight,
+    axisGap,
+    tickCount,
+    groupScaleMap
+  );
   drawXAxis(chart, paddingLeft, paddingTop, chartWidth, chartHeight, dataset, xScale);
 
   const visibleSet = new Set(visibleSeries.map((series) => series.id));
@@ -1485,8 +1522,12 @@ function renderChart(dataset, visibleSeries) {
 
     if (style.type === "bar") {
       const barIndex = barIndexMap.get(series.id) ?? 0;
-      const baselineValue = getBaselineValue(group);
+      const groupScale = groupScaleMap.get(group);
+      const baselineValue = getBaselineValue(group, groupScale);
       const baselineY = yScale(baselineValue, group);
+      if (!Number.isFinite(baselineY)) {
+        return;
+      }
 
       for (let i = 0; i < xCount; i += 1) {
         const value = series.values[i];
@@ -1497,6 +1538,9 @@ function renderChart(dataset, visibleSeries) {
         const xCenter = xScale(xValue);
         const x = xCenter - barGroupWidth / 2 + barIndex * barWidth;
         const y = yScale(value, group);
+        if (!Number.isFinite(y)) {
+          continue;
+        }
         const heightValue = Math.abs(baselineY - y);
         const rect = createSvg("rect", {
           x,
@@ -1530,7 +1574,8 @@ function renderChart(dataset, visibleSeries) {
             numericX,
             xScale,
             yScale,
-            group
+            group,
+            groupScaleMap.get(group)
           );
           if (areaPath) {
             const area = createSvg("path", {
@@ -1977,14 +2022,18 @@ function updateSlider() {
   rangeSelection.style.right = `${trackWidth - endPx}px`;
 }
 
-function drawGrid(svg, left, top, width, height, baseGroup, tickCount) {
+function drawGrid(svg, left, top, width, height, baseGroup, tickCount, groupScaleMap) {
   if (!baseGroup) {
     return;
   }
-  const ticks = createTicks(baseGroup.min, baseGroup.max, tickCount);
+  const scale = groupScaleMap ? groupScaleMap.get(baseGroup) : resolveGroupScale(baseGroup, false);
+  const ticks = createYAxisTicks(scale, tickCount);
 
   ticks.forEach((tick) => {
-    const y = top + (1 - (tick - baseGroup.min) / (baseGroup.max - baseGroup.min)) * height;
+    const y = mapYValue(tick, scale, top, height);
+    if (!Number.isFinite(y)) {
+      return;
+    }
     const line = createSvg("line", {
       x1: left,
       x2: left + width,
@@ -1996,7 +2045,7 @@ function drawGrid(svg, left, top, width, height, baseGroup, tickCount) {
   });
 }
 
-function drawAxes(svg, groups, left, top, width, height, axisGap, tickCount) {
+function drawAxes(svg, groups, left, top, width, height, axisGap, tickCount, groupScaleMap) {
   groups.forEach((group, index) => {
     const axisX = index === 0 ? left : left + width + axisGap * (index - 1);
     const align = index === 0 ? "end" : "start";
@@ -2011,9 +2060,13 @@ function drawAxes(svg, groups, left, top, width, height, axisGap, tickCount) {
     });
     svg.appendChild(axisLine);
 
-    const ticks = createTicks(group.min, group.max, tickCount);
+    const scale = groupScaleMap ? groupScaleMap.get(group) : resolveGroupScale(group, false);
+    const ticks = createYAxisTicks(scale, tickCount);
     ticks.forEach((tick) => {
-      const y = top + (1 - (tick - group.min) / (group.max - group.min)) * height;
+      const y = mapYValue(tick, scale, top, height);
+      if (!Number.isFinite(y)) {
+        return;
+      }
       const text = createSvg("text", {
         x: axisX + labelOffset,
         y: y + 4,
@@ -2028,7 +2081,8 @@ function drawAxes(svg, groups, left, top, width, height, axisGap, tickCount) {
       y: top - 12,
       "text-anchor": align,
     });
-    label.textContent = `Y 轴 ${index + 1}`;
+    label.textContent =
+      scale && scale.mode === Y_SCALE_MODE_LOG ? `Y 轴 ${index + 1}（对数）` : `Y 轴 ${index + 1}`;
     svg.appendChild(label);
   });
 }
@@ -2069,6 +2123,91 @@ function drawXAxis(svg, left, top, width, height, dataset, xScale) {
   svg.appendChild(label);
 }
 
+function resolveGroupScale(group, useLogScale) {
+  const linearMin = Number.isFinite(group.min) ? group.min : 0;
+  const linearMax = Number.isFinite(group.max) ? group.max : 1;
+
+  if (!useLogScale) {
+    return {
+      mode: Y_SCALE_MODE_LINEAR,
+      min: linearMin,
+      max: linearMax === linearMin ? linearMin + 1 : linearMax,
+    };
+  }
+
+  let positiveMin = Infinity;
+  let positiveMax = -Infinity;
+  group.series.forEach((series) => {
+    series.values.forEach((value) => {
+      if (value === null || Number.isNaN(value) || value <= 0) {
+        return;
+      }
+      positiveMin = Math.min(positiveMin, value);
+      positiveMax = Math.max(positiveMax, value);
+    });
+  });
+
+  if (!Number.isFinite(positiveMin) || !Number.isFinite(positiveMax)) {
+    return {
+      mode: Y_SCALE_MODE_LINEAR,
+      min: linearMin,
+      max: linearMax === linearMin ? linearMin + 1 : linearMax,
+    };
+  }
+
+  let min = Number.isFinite(group.min) && group.min > 0 ? Math.min(group.min, positiveMin) : positiveMin;
+  let max = Number.isFinite(group.max) && group.max > 0 ? Math.max(group.max, positiveMax) : positiveMax;
+
+  if (!(max > min)) {
+    min = positiveMin * 0.9;
+    max = positiveMax * 1.1;
+    if (!(min > 0) || !(max > min)) {
+      min = Math.max(positiveMin * 0.5, Number.EPSILON);
+      max = Math.max(positiveMax * 1.5, min * 10);
+    }
+  }
+
+  return {
+    mode: Y_SCALE_MODE_LOG,
+    min,
+    max,
+    logMin: Math.log10(min),
+    logMax: Math.log10(max),
+  };
+}
+
+function mapYValue(value, scale, top, height) {
+  if (!scale || !Number.isFinite(value)) {
+    return Number.NaN;
+  }
+  if (scale.mode === Y_SCALE_MODE_LOG) {
+    if (!(value > 0) || !Number.isFinite(scale.logMin) || !Number.isFinite(scale.logMax)) {
+      return Number.NaN;
+    }
+    const denominator = scale.logMax - scale.logMin;
+    if (!Number.isFinite(denominator) || denominator <= 0) {
+      return Number.NaN;
+    }
+    const logValue = Math.log10(value);
+    return top + (1 - (logValue - scale.logMin) / denominator) * height;
+  }
+  const denominator = scale.max - scale.min;
+  if (!Number.isFinite(denominator) || denominator === 0) {
+    return Number.NaN;
+  }
+  return top + (1 - (value - scale.min) / denominator) * height;
+}
+
+function createYAxisTicks(scale, count) {
+  if (!scale) {
+    return [];
+  }
+  if (scale.mode === Y_SCALE_MODE_LOG) {
+    return createLogTicks(scale.min, scale.max, count);
+  }
+  return createTicks(scale.min, scale.max, count);
+}
+
 function createTicks(min, max, count) {
   if (!Number.isFinite(min) || !Number.isFinite(max)) {
     return [];
@@ -2078,6 +2217,23 @@ function createTicks(min, max, count) {
   }
   const step = (max - min) / (count - 1);
   return Array.from({ length: count }, (_, i) => min + step * i);
+}
+
+function createLogTicks(min, max, count) {
+  if (!(min > 0) || !(max > 0)) {
+    return [];
+  }
+  if (min === max) {
+    return [min];
+  }
+  const logMin = Math.log10(min);
+  const logMax = Math.log10(max);
+  if (!Number.isFinite(logMin) || !Number.isFinite(logMax) || logMax <= logMin) {
+    return [min, max];
+  }
+  const safeCount = Math.max(2, count);
+  const step = (logMax - logMin) / (safeCount - 1);
+  return Array.from({ length: safeCount }, (_, i) => 10 ** (logMin + step * i));
 }
 
 function createIndexTicks(length, count) {
@@ -2121,13 +2277,16 @@ function buildLinePath(segment, xValues, numericX, xScale, yScale, group) {
     .join(" ");
 }
 
-function buildAreaPath(segment, xValues, numericX, xScale, yScale, group) {
+function buildAreaPath(segment, xValues, numericX, xScale, yScale, group, groupScale) {
   if (!segment.length) {
     return "";
   }
   const linePath = buildLinePath(segment, xValues, numericX, xScale, yScale, group);
-  const baseline = getBaselineValue(group);
+  const baseline = getBaselineValue(group, groupScale);
   const baseY = yScale(baseline, group);
+  if (!Number.isFinite(baseY)) {
+    return "";
+  }
   const first = segment[0];
   const last = segment[segment.length - 1];
   const firstX = xScale(numericX ? xValues[first.index] : first.index);
@@ -2135,7 +2294,10 @@ function buildAreaPath(segment, xValues, numericX, xScale, yScale, group) {
   return `${linePath} L ${lastX} ${baseY} L ${firstX} ${baseY} Z`;
 }
 
-function getBaselineValue(group) {
+function getBaselineValue(group, groupScale) {
+  if (groupScale && groupScale.mode === Y_SCALE_MODE_LOG) {
+    return groupScale.min;
+  }
   if (group.min <= 0 && group.max >= 0) {
     return 0;
   }
@@ -2201,6 +2363,9 @@ function drawCurrentValue(series, group, xValues, numericX, xScale, yScale, boun
   const xValue = numericX ? xValues[last.index] : last.index;
   const x = xScale(xValue);
   const y = yScale(last.value, group);
+  if (!Number.isFinite(y)) {
+    return;
+  }
   const color = getSeriesColor(series);
   const reference = createSvg("line", {
     x1: bounds.left,
@@ -2373,6 +2538,9 @@ function updateHoverDots(hoverPoint) {
       return;
     }
     const y = yScale(value, group);
+    if (!Number.isFinite(y)) {
+      return;
+    }
     const dot = createSvg("circle", {
       cx: hoverPoint.x,
       cy: y,

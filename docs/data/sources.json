@@ -13,7 +13,8 @@
     {
       "label": "标普500指数参考",
       "file": "https://anexus-data-1399092305.cos.ap-guangzhou.myqcloud.com/data/SP500_Average.csv",
-      "note": "标普500指数参考序列，用于跨市场趋势对照。"
+      "note": "标普500指数参考序列，用于跨市场趋势对照。",
+      "yScaleMode": "log"
     }
   ]
 }
