@@ -70,6 +70,8 @@ const seriesDefaultConfig = new Map([
   ["融资融券/市值分位", { colorIndex: 2, type: "line" }],
   ["股权风险溢价分位", { colorIndex: 1, type: "line" }],
   ["全A点位", { colorIndex: 10, type: "area" }],
+  ["收盘点位", { color: "#636e72", type: "area" }],
+  ["参考线", { color: "#f19066", type: "line" }],
   ["市场温度", { colorIndex: 5, type: "line" }],
   ["股权风险溢价", { color: "#778beb", type: "line" }],
   ["十年国债收益率", { colorIndex: 6, type: "line" }],
