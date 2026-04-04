@@ -1,6 +1,5 @@
 {
   "sources": [
-    
     {
       "label": "市场温度与估值",
       "file": "Market_Thermometer.csv",
@@ -10,8 +9,11 @@
       "label": "股权风险溢价",
       "file": "ERP_Interval.csv",
       "note": "股权风险溢价接近±2倍标准差时，中证全A指数往往处于历史极值，并伴随趋势的边际反转。"
+    },
+    {
+      "label": "标普500指数参考",
+      "file": "https://anexus-data-1399092305.cos.ap-guangzhou.myqcloud.com/data/SP500_Average.csv",
+      "note": "标普500指数参考序列，用于跨市场趋势对照。"
     }
-    
-    
   ]
 }
