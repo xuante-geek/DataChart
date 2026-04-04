@@ -73,7 +73,7 @@ const seriesDefaultConfig = new Map([
   ["股权风险溢价分位", { colorIndex: 1, type: "line" }],
   ["全A点位", { colorIndex: 10, type: "area" }],
   ["收盘点位", { color: "#636e72", type: "area" }],
-  ["参考线", { color: "#f19066", type: "line" }],
+  ["参考线", { color: "#d63031", type: "line" }],
   ["市场温度", { colorIndex: 5, type: "line" }],
   ["股权风险溢价", { color: "#778beb", type: "line" }],
   ["十年国债收益率", { colorIndex: 6, type: "line" }],
@@ -501,6 +501,11 @@ function normalizeYScaleMode(mode) {
   return Y_SCALE_MODE_LINEAR;
 }
 
+function normalizeFiniteNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
 function createChartInstance(options) {
   const instance = {
     id: options.id || "",
@@ -527,6 +532,8 @@ function createChartInstance(options) {
     axisOverrides: new Map(),
     axisForcedSeries: new Set(),
     yScaleMode: normalizeYScaleMode(options.yScaleMode),
+    yScaleMin: normalizeFiniteNumber(options.yScaleMin),
+    yScaleMax: normalizeFiniteNumber(options.yScaleMax),
   };
   attachInstanceEvents(instance);
   return instance;
@@ -969,6 +976,8 @@ async function loadBuiltInCharts() {
       axisLabelPrefix: axisTitle,
       styleScope: "builtin",
       yScaleMode: source.yScaleMode || source.yScale,
+      yScaleMin: source.yScaleMin ?? source.minY,
+      yScaleMax: source.yScaleMax ?? source.maxY,
       chart: groupParts.chart,
       legend: groupParts.legend,
       axisSummary: groupParts.axisSummary,
@@ -1422,9 +1431,11 @@ function renderChart(dataset, visibleSeries) {
   const groups = groupSeries(dataset.series);
   applyAxisOverrides(groups);
   const useLogScale = activeInstance && activeInstance.yScaleMode === Y_SCALE_MODE_LOG;
+  const yScaleMin = activeInstance ? activeInstance.yScaleMin : null;
+  const yScaleMax = activeInstance ? activeInstance.yScaleMax : null;
   const groupScaleMap = new Map();
   groups.forEach((group) => {
-    groupScaleMap.set(group, resolveGroupScale(group, useLogScale));
+    groupScaleMap.set(group, resolveGroupScale(group, useLogScale, yScaleMin, yScaleMax));
   });
   const axisCount = groups.length;
 
@@ -2123,15 +2134,22 @@ function drawXAxis(svg, left, top, width, height, dataset, xScale) {
   svg.appendChild(label);
 }
 
-function resolveGroupScale(group, useLogScale) {
+function resolveGroupScale(group, useLogScale, preferredMin, preferredMax) {
   const linearMin = Number.isFinite(group.min) ? group.min : 0;
   const linearMax = Number.isFinite(group.max) ? group.max : 1;
+  const hasPreferredMin = Number.isFinite(preferredMin);
+  const hasPreferredMax = Number.isFinite(preferredMax);
 
   if (!useLogScale) {
+    let min = hasPreferredMin ? preferredMin : linearMin;
+    let max = hasPreferredMax ? preferredMax : linearMax;
+    if (!(max > min)) {
+      max = min + 1;
+    }
     return {
       mode: Y_SCALE_MODE_LINEAR,
-      min: linearMin,
-      max: linearMax === linearMin ? linearMin + 1 : linearMax,
+      min,
+      max,
     };
   }
 
@@ -2158,13 +2176,19 @@ function resolveGroupScale(group, useLogScale) {
   let min = Number.isFinite(group.min) && group.min > 0 ? Math.min(group.min, positiveMin) : positiveMin;
   let max = Number.isFinite(group.max) && group.max > 0 ? Math.max(group.max, positiveMax) : positiveMax;
 
+  if (hasPreferredMin && preferredMin > 0) {
+    min = preferredMin;
+  }
+  if (hasPreferredMax && preferredMax > 0) {
+    max = preferredMax;
+  }
+
   if (!(max > min)) {
-    min = positiveMin * 0.9;
-    max = positiveMax * 1.1;
-    if (!(min > 0) || !(max > min)) {
-      min = Math.max(positiveMin * 0.5, Number.EPSILON);
-      max = Math.max(positiveMax * 1.5, min * 10);
-    }
+    const fallbackMin = hasPreferredMin && preferredMin > 0
+      ? preferredMin
+      : Math.max(positiveMin * 0.5, Number.EPSILON);
+    min = fallbackMin;
+    max = Math.max(positiveMax, min * 10);
   }
 
   return {
