@@ -71,6 +71,7 @@ const seriesDefaultConfig = new Map([
   ["成交量/市值分位", { colorIndex: 4, type: "line" }],
   ["融资融券/市值分位", { colorIndex: 2, type: "line" }],
   ["股权风险溢价分位", { colorIndex: 1, type: "line" }],
+  ["市场估值", { color: "#74b9ff", type: "line" }],
   ["全A点位", { colorIndex: 10, type: "area" }],
   ["收盘点位", { color: "#636e72", type: "area" }],
   ["参考线", { color: "#d63031", type: "line" }],
