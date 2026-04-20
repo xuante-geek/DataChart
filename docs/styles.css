@@ -386,6 +386,11 @@ body {
   font-weight: 600;
 }
 
+.note-hl-valuation {
+  color: #74b9ff;
+  font-weight: 700;
+}
+
 .note-hl-market {
   color: #f19066;
   font-weight: 600;

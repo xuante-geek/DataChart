@@ -680,6 +680,11 @@ function formatNoteHtml(note) {
   const safe = escapeHtml(note || "").replace(/\r?\n/g, "<br>");
   const tokens = [
     {
+      key: "__HL_VALUATION__",
+      text: "市场估值",
+      className: "note-hl-valuation",
+    },
+    {
       key: "__HL_ERPQ__",
       text: "股权风险溢价分位",
       className: "note-hl-erp-quantile",
