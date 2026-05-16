@@ -76,14 +76,15 @@ const seriesDefaultConfig = new Map([
   ["收盘点位", { color: "#636e72", type: "area" }],
   ["参考线", { color: "#d63031", type: "line" }],
   ["市场温度", { colorIndex: 5, type: "line" }],
-  ["股权风险溢价", { color: "#778beb", type: "line" }],
+  ["股权风险溢价", { color: "#7EA9D5", type: "line" }],
+  ["无风险收益率", { colorIndex: 6, type: "line" }],
   ["十年国债收益率", { colorIndex: 6, type: "line" }],
   ["PE-TTM-S", { colorIndex: 3, type: "line" }],
-  ["+2σ", { color: "#00b894", type: "line" }],
-  ["+1σ", { colorIndex: 10, type: "line" }],
-  ["中位数", { colorIndex: 10, type: "line" }],
-  ["-1σ", { colorIndex: 10, type: "line" }],
-  ["-2σ", { color: "#f19066", type: "line" }],
+  ["+2σ", { color: "#7bad8d", type: "line", lineWidth: 1.25 }],
+  ["+1σ", { color: "#b2bec3", type: "line", lineWidth: 1.25, lineDash: "1 5", lineCap: "round" }],
+  ["中位数", { color: "#b2bec3", type: "line", lineWidth: 1.25, lineDash: "1 5", lineCap: "round" }],
+  ["-1σ", { color: "#b2bec3", type: "line", lineWidth: 1.25, lineDash: "1 5", lineCap: "round" }],
+  ["-2σ", { color: "#ba6861", type: "line", lineWidth: 1.25 }],
 ]);
 
 if (fileInput) {
@@ -507,6 +508,47 @@ function normalizeFiniteNumber(value) {
   return Number.isFinite(num) ? num : null;
 }
 
+function normalizeBoolean(value, defaultValue = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  return defaultValue;
+}
+
+function normalizeStringMap(value) {
+  if (!value || typeof value !== "object") {
+    return new Map();
+  }
+  const map = new Map();
+  Object.entries(value).forEach(([from, to]) => {
+    const source = String(from || "").trim();
+    const target = String(to || "").trim();
+    if (!source || !target) {
+      return;
+    }
+    map.set(source, target);
+  });
+  return map;
+}
+
+function normalizeStringSet(value) {
+  const set = new Set();
+  if (Array.isArray(value)) {
+    value.forEach((item) => {
+      const name = String(item || "").trim();
+      if (name) {
+        set.add(name);
+      }
+    });
+  } else if (typeof value === "string") {
+    const name = value.trim();
+    if (name) {
+      set.add(name);
+    }
+  }
+  return set;
+}
+
 function createChartInstance(options) {
   const instance = {
     id: options.id || "",
@@ -535,6 +577,10 @@ function createChartInstance(options) {
     yScaleMode: normalizeYScaleMode(options.yScaleMode),
     yScaleMin: normalizeFiniteNumber(options.yScaleMin),
     yScaleMax: normalizeFiniteNumber(options.yScaleMax),
+    seriesRenameMap: normalizeStringMap(options.seriesRenameMap),
+    seriesColorMap: normalizeStringMap(options.seriesColorMap),
+    forceAxisSeries: normalizeStringSet(options.forceAxisSeries),
+    showGridLines: normalizeBoolean(options.showGridLines, true),
   };
   attachInstanceEvents(instance);
   return instance;
@@ -698,6 +744,7 @@ function formatNoteHtml(note) {
       key: "__HL_ERP__",
       text: "股权风险溢价",
       className: "note-hl-erp",
+      inlineStyle: "color:#BA6861;font-weight:600;",
     },
   ];
 
@@ -706,9 +753,10 @@ function formatNoteHtml(note) {
     output = output.split(token.text).join(token.key);
   });
   tokens.forEach((token) => {
+    const styleAttr = token.inlineStyle ? ` style="${token.inlineStyle}"` : "";
     output = output
       .split(token.key)
-      .join(`<span class="note-hl ${token.className}">${token.text}</span>`);
+      .join(`<span class="note-hl ${token.className}"${styleAttr}>${token.text}</span>`);
   });
   return output;
 }
@@ -984,6 +1032,10 @@ async function loadBuiltInCharts() {
       yScaleMode: source.yScaleMode || source.yScale,
       yScaleMin: source.yScaleMin ?? source.minY,
       yScaleMax: source.yScaleMax ?? source.maxY,
+      seriesRenameMap: source.seriesRenameMap,
+      seriesColorMap: source.seriesColorMap,
+      forceAxisSeries: source.forceAxisSeries,
+      showGridLines: source.showGridLines,
       chart: groupParts.chart,
       legend: groupParts.legend,
       axisSummary: groupParts.axisSummary,
@@ -1060,6 +1112,9 @@ async function loadBuiltInCharts() {
 }
 
 function applyDataset(dataset) {
+  const renameMap = activeInstance ? activeInstance.seriesRenameMap : null;
+  const colorMap = activeInstance ? activeInstance.seriesColorMap : null;
+  const forceAxisSeries = activeInstance ? activeInstance.forceAxisSeries : null;
   currentDataset = dataset;
   currentRange = {
     start: 0,
@@ -1070,7 +1125,19 @@ function applyDataset(dataset) {
   axisOverrides.clear();
   axisForcedSeries.clear();
   dataset.series.forEach((series) => {
+    if (renameMap && renameMap.size && renameMap.has(series.name)) {
+      series.name = renameMap.get(series.name);
+    }
     visibility.set(series.id, true);
+    if (colorMap && colorMap.size && colorMap.has(series.name)) {
+      const normalized = normalizeHexColor(String(colorMap.get(series.name) || ""));
+      if (isValidHexColor(normalized)) {
+        setSeriesStyle(series, { color: normalized });
+      }
+    }
+    if (forceAxisSeries && forceAxisSeries.size && forceAxisSeries.has(series.name)) {
+      axisForcedSeries.add(series.id);
+    }
     getSeriesStyle(series);
   });
 
@@ -1319,6 +1386,27 @@ function getDefaultAxisBounds(min, max) {
   return { min: roundedMin, max: roundedMax };
 }
 
+function getAdaptiveAxisBounds(min, max) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return getDefaultAxisBounds(min, max);
+  }
+  if (min === max) {
+    const delta = Math.max(Math.abs(min) * 0.08, 0.1);
+    return { min: min - delta, max: max + delta };
+  }
+  const span = Math.abs(max - min);
+  const padding = span * 0.04;
+  return { min: min - padding, max: max + padding };
+}
+
+function isRiskFreeYieldGroup(group) {
+  if (!group || !Array.isArray(group.series) || group.series.length !== 1) {
+    return false;
+  }
+  const seriesName = String(group.series[0]?.name || "").trim();
+  return seriesName === "无风险收益率";
+}
+
 function getGroupKey(group) {
   return group.series
     .map((series) => series.id)
@@ -1330,18 +1418,26 @@ function applyAxisOverrides(groups) {
   groups.forEach((group) => {
     const key = getGroupKey(group);
     group.key = key;
+    const shouldAutoFitRiskFreeYield = isRiskFreeYieldGroup(group);
     const shouldClampToPercent =
       Number.isFinite(group.min) && Number.isFinite(group.max) && group.min >= 0 && group.max <= 100;
-    const defaultBounds = shouldClampToPercent
+    const defaultBounds = shouldAutoFitRiskFreeYield
+      ? getAdaptiveAxisBounds(group.min, group.max)
+      : shouldClampToPercent
       ? { min: 0, max: 100 }
       : getDefaultAxisBounds(group.min, group.max);
 
-    if (!axisOverrides.has(key)) {
+    if (shouldAutoFitRiskFreeYield) {
+      axisOverrides.set(key, defaultBounds);
+    } else if (!axisOverrides.has(key)) {
       axisOverrides.set(key, defaultBounds);
     }
 
     let override = axisOverrides.get(key);
-    if (shouldClampToPercent) {
+    if (shouldAutoFitRiskFreeYield) {
+      override = defaultBounds;
+      axisOverrides.set(key, override);
+    } else if (shouldClampToPercent) {
       override = { min: 0, max: 100 };
       axisOverrides.set(key, override);
     }
@@ -1483,16 +1579,18 @@ function renderChart(dataset, visibleSeries) {
   };
 
   const tickCount = 11;
-  drawGrid(
-    chart,
-    paddingLeft,
-    paddingTop,
-    chartWidth,
-    chartHeight,
-    groups[0],
-    tickCount,
-    groupScaleMap
-  );
+  if (!activeInstance || activeInstance.showGridLines !== false) {
+    drawGrid(
+      chart,
+      paddingLeft,
+      paddingTop,
+      chartWidth,
+      chartHeight,
+      groups[0],
+      tickCount,
+      groupScaleMap
+    );
+  }
   drawAxes(
     chart,
     groups,
@@ -1609,6 +1707,15 @@ function renderChart(dataset, visibleSeries) {
           class: "series-line",
           stroke: color,
         });
+        if (Number.isFinite(style.lineWidth)) {
+          line.style.strokeWidth = `${style.lineWidth}px`;
+        }
+        if (style.lineDash) {
+          line.setAttribute("stroke-dasharray", style.lineDash);
+        }
+        if (style.lineCap) {
+          line.setAttribute("stroke-linecap", style.lineCap);
+        }
         chart.appendChild(line);
       });
     }
@@ -1749,6 +1856,9 @@ function getSeriesStyle(series) {
     map.set(key, {
       type: preset ? preset.type : "line",
       showCurrent: false,
+      lineWidth: preset && Number.isFinite(preset.lineWidth) ? preset.lineWidth : null,
+      lineDash: preset && typeof preset.lineDash === "string" ? preset.lineDash : "",
+      lineCap: preset && typeof preset.lineCap === "string" ? preset.lineCap : "",
       color: preset
         ? (preset.color || colorOptions[preset.colorIndex])
         : colorOptions[index % colorOptions.length],

@@ -8,14 +8,44 @@
     {
       "label": "股权风险溢价",
       "file": "ERP_Interval.csv",
-      "note": "股权风险溢价接近±2倍标准差时，中证全A指数往往处于历史极值，并伴随趋势的边际反转。"
+      "note": "股权风险溢价接近±2倍标准差时，中证全A指数往往处于历史极值，并伴随趋势的边际反转。",
+      "seriesRenameMap": {
+        "十年国债收益率": "无风险收益率"
+      },
+      "seriesColorMap": {
+        "股权风险溢价": "#BA6861",
+        "无风险收益率": "#7EA9D5",
+        "全A点位": "#636e72",
+        "-2σ": "#f19066",
+        "-1σ": "#b2bec3",
+        "中位数": "#b2bec3",
+        "+1σ": "#b2bec3",
+        "+2σ": "#00b894"
+      },
+      "forceAxisSeries": ["无风险收益率"],
+      "showGridLines": false
     },
     {
-      "label": "标普500指数参考",
+      "label": "标普500指数",
       "file": "https://anexus-data-1399092305.cos.ap-guangzhou.myqcloud.com/data/SP500_Average.csv",
       "note": "标普500指数参考序列，用于跨市场趋势对照。",
+      "seriesColorMap": {
+        "收盘点位": "#636E72",
+        "参考线": "#ba6861"
+      },
       "yScaleMode": "log",
       "yScaleMin": 1000
+    },
+    {
+      "label": "纳斯达克指数",
+      "file": "NASDAQ_Average.csv",
+      "note": "纳斯达克指数参考序列，用于跨市场趋势对照。",
+      "seriesColorMap": {
+        "收盘点位": "#636E72",
+        "参考线": "#ba6861"
+      },
+      "yScaleMode": "log",
+      "yScaleMin": 1800
     }
   ]
 }
