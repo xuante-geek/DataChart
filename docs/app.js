@@ -580,6 +580,7 @@ function createChartInstance(options) {
     seriesRenameMap: normalizeStringMap(options.seriesRenameMap),
     seriesColorMap: normalizeStringMap(options.seriesColorMap),
     forceAxisSeries: normalizeStringSet(options.forceAxisSeries),
+    defaultHiddenSeries: normalizeStringSet(options.defaultHiddenSeries),
     showGridLines: normalizeBoolean(options.showGridLines, true),
   };
   attachInstanceEvents(instance);
@@ -1035,6 +1036,7 @@ async function loadBuiltInCharts() {
       seriesRenameMap: source.seriesRenameMap,
       seriesColorMap: source.seriesColorMap,
       forceAxisSeries: source.forceAxisSeries,
+      defaultHiddenSeries: source.defaultHiddenSeries,
       showGridLines: source.showGridLines,
       chart: groupParts.chart,
       legend: groupParts.legend,
@@ -1115,6 +1117,7 @@ function applyDataset(dataset) {
   const renameMap = activeInstance ? activeInstance.seriesRenameMap : null;
   const colorMap = activeInstance ? activeInstance.seriesColorMap : null;
   const forceAxisSeries = activeInstance ? activeInstance.forceAxisSeries : null;
+  const defaultHiddenSeries = activeInstance ? activeInstance.defaultHiddenSeries : null;
   currentDataset = dataset;
   currentRange = {
     start: 0,
@@ -1128,7 +1131,9 @@ function applyDataset(dataset) {
     if (renameMap && renameMap.size && renameMap.has(series.name)) {
       series.name = renameMap.get(series.name);
     }
-    visibility.set(series.id, true);
+    const isHiddenByDefault =
+      defaultHiddenSeries && defaultHiddenSeries.size && defaultHiddenSeries.has(series.name);
+    visibility.set(series.id, !isHiddenByDefault);
     if (colorMap && colorMap.size && colorMap.has(series.name)) {
       const normalized = normalizeHexColor(String(colorMap.get(series.name) || ""));
       if (isValidHexColor(normalized)) {
